@@ -20,6 +20,23 @@ mp_pose = mp.solutions.pose
 mp_drawing = mp.solutions.drawing_utils
 
 
+# Required landmarks for cricket biomechanics
+REQUIRED_LANDMARKS = {
+    11: "left_shoulder",
+    12: "right_shoulder",
+    13: "left_elbow",
+    14: "right_elbow",
+    15: "left_wrist",
+    16: "right_wrist",
+    23: "left_hip",
+    24: "right_hip",
+    25: "left_knee",
+    26: "right_knee",
+    27: "left_ankle",
+    28: "right_ankle"
+}
+
+
 class PoseEstimator:
 
     def __init__(self):
@@ -36,7 +53,7 @@ class PoseEstimator:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.pose.process(rgb)
 
-        keypoints = []
+        keypoints = {}
 
         if results.pose_landmarks:
 
@@ -52,17 +69,32 @@ class PoseEstimator:
 
             for idx, lm in enumerate(results.pose_landmarks.landmark):
 
-                x = int(lm.x * w)
-                y = int(lm.y * h)
+                if idx in REQUIRED_LANDMARKS:
 
-                keypoints.append({
-                    "id": idx,
-                    "x": x,
-                    "y": y,
-                    "visibility": lm.visibility
-                })
+                    x = int(lm.x * w)
+                    y = int(lm.y * h)
 
-                cv2.circle(frame, (x, y), 4, (0,255,255), -1)
+                    joint_name = REQUIRED_LANDMARKS[idx]
+
+                    keypoints[joint_name] = {
+                        "x": x,
+                        "y": y,
+                        "visibility": lm.visibility
+                    }
+
+                    # Draw joint point
+                    cv2.circle(frame, (x, y), 5, (0,255,255), -1)
+
+                    # Optional debug label
+                    cv2.putText(
+                        frame,
+                        joint_name,
+                        (x+5, y-5),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.4,
+                        (255,255,255),
+                        1
+                    )
 
         return frame, keypoints
 
