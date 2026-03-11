@@ -34,9 +34,13 @@ def generate_angle_dataset(pose_file, output_file):
 
 def main():
 
-    pose_file = r"E:\PYTHON\AthletiQ\AthletiQ\src\StickFigureGeneration\outputs\pose_data.json"
-    # Save angle data inside biomechanics outputs folder
-    output_file = r"E:\PYTHON\AthletiQ\AthletiQ\src\StickFigureGeneration\outputs\angle_data.json"
+    # Read pose data from top-level AthletiQ/outputs/pose_data.json
+    # (__file__ is .../src/biomechanics/gen_angle_data.py → go up 3 levels to project root)
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    pose_file = os.path.join(project_root, "outputs", "pose_data.json")
+
+    # Save angle data inside top-level AthletiQ/outputs
+    output_file = os.path.join(project_root, "outputs", "angle_data.json")
 
     generate_angle_dataset(pose_file, output_file)
 

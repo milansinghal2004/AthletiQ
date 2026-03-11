@@ -1,4 +1,7 @@
+import sys
 import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 os.environ["GLOG_minloglevel"] = "3"
@@ -14,6 +17,7 @@ import cv2
 import mediapipe as mp
 import json
 import time
+from biomechanics.angle_calculation import compute_joint_angles
 
 
 mp_pose = mp.solutions.pose
@@ -101,6 +105,8 @@ class PoseEstimator:
 
 def run_pose_detection(source, save_data=False):
 
+    angle_data = []
+
     cap = cv2.VideoCapture(source)
 
     if not cap.isOpened():
@@ -113,6 +119,8 @@ def run_pose_detection(source, save_data=False):
     pose_model = PoseEstimator()
 
     pose_data = []
+
+    frame_count = 0  # FIX 1
 
     prev_time = 0
 
@@ -131,7 +139,18 @@ def run_pose_detection(source, save_data=False):
 
         frame, keypoints = pose_model.process_frame(frame)
 
-        pose_data.append(keypoints)
+        # Save pose data
+        pose_data.append(keypoints)  # FIX 2
+
+        if keypoints:  # FIX 4
+            angles = compute_joint_angles(keypoints)
+
+            angle_data.append({
+                "frame": frame_count,
+                **angles
+            })
+
+        frame_count += 1  # FIX 1
 
         # FPS Calculation
         curr_time = time.time()
@@ -160,14 +179,23 @@ def run_pose_detection(source, save_data=False):
 
     if save_data:
 
-        os.makedirs("outputs", exist_ok=True)
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        outputs_dir = os.path.join(project_root, "outputs")
+        os.makedirs(outputs_dir, exist_ok=True)
 
-        with open("outputs/pose_data.json", "w") as f:
+        pose_output_path = os.path.join(outputs_dir, "pose_data.json")
+        angle_output_path = os.path.join(outputs_dir, "angle_data.json")
+
+        with open(pose_output_path, "w") as f:
             json.dump(pose_data, f)
 
-        print("\nPose data saved to outputs/pose_data.json")
+        with open(angle_output_path, "w") as f:
+            json.dump(angle_data, f, indent=2)
 
+        print(f"\nPose data saved to {pose_output_path}")
+        print(f"Angle data saved to {angle_output_path}")
 
+        
 def main():
 
     print("\n===== AthletiQ Pose Detection =====\n")
