@@ -1,0 +1,9 @@
+absl-py==2.4.0
+matplotlib==3.10.8
+mediapipe==0.10.14
+numpy==2.2.6
+opencv-contrib-python==4.13.0.92
+opencv-python==4.13.0.92
+scipy==1.15.3
+sounddevice==0.5.5
+
