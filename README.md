@@ -6,7 +6,7 @@ AthletiQ is an AI-driven sports analytics project designed to analyze cricket ba
 
 The platform provides quantitative performance analysis and corrective feedback to help players improve their technique without requiring expensive motion capture systems.
 
----
+--- 
 
 ## Key Features
 
