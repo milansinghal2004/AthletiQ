@@ -1,0 +1,10 @@
+{
+    "Cover Drive": {
+        "video_path": "test_inputs/reference_cover_drive.mp4",
+        "angles_path": "shot_syncing/data/cover_drive_angles.json"
+    },
+    "Straight Drive": {
+        "video_path": "test_inputs/reference_straight_drive.mp4",
+        "angles_path": "shot_syncing/data/straight_drive_angles.json"
+    }
+}

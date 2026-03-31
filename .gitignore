@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Project Specific - Data & Outputs (Production Rule: No inputs/outputs on GitHub)
+outputs/
+temp_video_frames/
+assets/references/*.mp4
+assets/references/*.avi
+assets/references/angles/*.json
+
+# Large Model Binaries (Exclude to avoid repo bloat)
+models/sam2/checkpoints/*.pt
+models/mediapipe/*.task
+
+# OS
+.DS_Store
+Thumbs.db
