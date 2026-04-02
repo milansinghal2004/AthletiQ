@@ -1,6 +1,6 @@
 # 🏏 AthletiQ - Advanced Cricket Performance Analytics
 
-AthletiQ is a high-performance, single-stage pipeline for cricket technical analysis. It leverages state-of-the-art computer vision models (SAM2 and MediaPipe) to provide automated player segmentation, biomechanical joint-angle extraction, and side-by-side technical comparison against ideal references.
+AthletiQ is a high-performance, single-stage pipeline for cricket technical analysis. It leverages state-of-the-art computer vision models (SAM2 and MediaPipe) to provide automated player segmentation, biomechanical joint-angle extraction, and side-by-side technical comparison against ideal references. 
 
 --- 
 
