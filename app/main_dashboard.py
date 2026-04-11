@@ -262,8 +262,15 @@ def sync_and_compare(practice_video, shot_type, progress=gr.Progress()):
         
     practice_data = extractor.extract_from_video(practice_video, progress_callback=progress_cb)
     
-    with open(ref_angles_path, "r") as f:
-        reference_data = json.load(f)
+    if os.path.exists(ref_angles_path):
+        with open(ref_angles_path, "r") as f:
+            reference_data = json.load(f)
+    else:
+        print(f"Reference angle data not found at {ref_angles_path}. Generating from {ref_video}...")
+        reference_data = extractor.extract_from_video(ref_video, progress_callback=None)
+        os.makedirs(os.path.dirname(ref_angles_path), exist_ok=True)
+        with open(ref_angles_path, "w") as f:
+            json.dump(reference_data, f)
         
     mapping = sync_engine.sync_videos(practice_data, reference_data)
     
@@ -315,7 +322,7 @@ def create_synced_video(practice_video, reference_video, mapping, progress=None)
     return out_path
 
 # --- UI Definitions ---
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
+with gr.Blocks() as demo:
     gr.Markdown("# 🏏 AthletiQ - Unified Performance Pipeline")
     gr.Markdown("Consolidated technical analysis: Segmentation -> Biomechanics -> Comparison.")
     
@@ -364,4 +371,4 @@ with gr.Blocks(theme=gr.themes.Soft()) as demo:
     gr.Markdown("Powered by SAM2, MediaPipe, and AthletiQ Engine.")
 
 if __name__ == "__main__":
-    demo.launch()
+    demo.launch(theme=gr.themes.Soft(), allowed_paths=[os.path.join(PROJECT_ROOT, "outputs")])
