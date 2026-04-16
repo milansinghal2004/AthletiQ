@@ -1,88 +1,116 @@
-# 🏏 AthletiQ - Advanced Cricket Performance Analytics
+# AthletiQ: Unified Performance Pipeline
 
-AthletiQ is a high-performance, single-stage pipeline for cricket technical analysis. It leverages state-of-the-art computer vision models (SAM2 and MediaPipe) to provide automated player segmentation, biomechanical joint-angle extraction, and side-by-side technical comparison against ideal references. 
+**AthletiQ** is a state-of-the-art technical analysis suite designed for elite cricket performance tracking. By leveraging cutting-edge Computer Vision and Biomechanical modeling, AthletiQ transforms raw practice footage into actionable, frame-accurate insights.
 
---- 
-  
-## 🏗️ System Architecture
+---
 
-The project follows a modular, production-ready architecture designed for scalability and clear separation of concerns.
+## 💡 Ideation
+In modern professional cricket, the difference between elite performance and average results often lies in the fine details of biomechanics and technical consistency. AthletiQ was conceived to democratize high-end sports lab analysis, providing coaches and athletes with a unified pipeline that automates player isolation, pose extraction, and standard-aligned shot comparison.
+
+---
+
+## 🚀 Core Capabilities
+
+### 1. Precision Player Segmentation (Meta SAM2)
+Using Meta’s **Segment Anything Model 2 (SAM2)**, AthletiQ allows users to isolate a player from complex backgrounds with a single click. This ensures that technical analysis is focused entirely on the athlete, eliminating environmental noise.
+
+### 2. Biomechanical Extraction (MediaPipe)
+The system integrates **MediaPipe** Pose Landmarking to reconstruct 3D skeletal data. It automatically calculates critical technical metrics, including:
+*   Joint angles (Elbow, Knee, Shoulder)
+*   Stance stability
+*   Power-transfer alignment
+
+### 3. Intelligent Shot Synchronization (SyncEngine)
+Equipped with a custom **SyncEngine** utilizing Dynamic Time Warping (DTW), the platform aligns user practice videos with professional reference standards in temporal space. This allows for precise, frame-by-frame comparison of shot mechanics regardless of recording speed.
+
+### 4. Technical Comparison Rendering
+Generates high-fidelity, side-by-side comparison videos at **0.3x slow motion**, enabling granular review of technical flaws and areas for improvement.
+
+---
+
+## 📂 Project Structure
 
 ```text
 AthletiQ/
-├── app/
-│   └── main_dashboard.py      # Unified Gradio Entry Point
-├── core/
-│   ├── biomechanics/          # Pose extraction & Angle logic
-│   └── syncing/               # Shot alignment (DTW Engine)
-├── models/
-│   ├── sam2/                  # SAM2 Checkpoints & Configs
-│   └── mediapipe/             # Pose Landmarker Tasks
-├── assets/
-│   └── references/            # Professional Reference Metadata & Videos
-└── outputs/                   # Analysis Results (Auto-generated)
+├── app/                    # Application entry points and analytics suite
+│   └── main_dashboard.py   # Unified Analytics Suite entry point
+├── core/                   # Core algorithmic packages
+│   ├── biomechanics/       # Pose extraction and angle calculation logic
+│   └── syncing/            # DTW-based synchronization engine
+├── models/                 # Pre-trained model checkpoints and configurations
+│   ├── sam2/               # Meta SAM2 assets
+│   └── mediapipe/          # Pose landmarker tasks
+├── assets/                 # Reference database and technical standards
+│   └── references/         # Shot-specific reference data (Videos/JSON)
+├── data/                   # Input data storage
+├── outputs/                # Processed analysis results (Segmented videos/JSON)
+└── requirements.txt        # Dependency specification
 ```
 
 ---
 
-## ⚡ Key Features
-
-- **Unified Performance Pipeline**: A streamlined, single-screen workflow from upload to comparison.
-- **Isolated Player Cutouts**: Deep background removal using Meta's SAM2 for focused technical review.
-- **Biomechanical Analysis**: Automated extraction of 8 critical joint angles (elbows, shoulders, hips, knees).
-- **Intelligent Shot Sync**: Dynamic Time Warping (DTW) engine to align practice shots with professional references in 30% slow-motion.
-- **GPU Accelerated**: Optimized for NVIDIA RTX 30-series GPUs with mixed-precision inference and CUDA kernels.
+## 🎯 Target Audience & Relevance
+*   **Professional Coaches**: Streamline technical reviews with automated segmentation and comparison.
+*   **Performance Analysts**: Quantify movement patterns with high-precision biomechanical data.
+*   **Atheletes**: Direct visual feedback against professional standards for self-paced improvement.
 
 ---
 
-## 🚀 Production Setup
+## 🛠 Installation (Windows)
 
-### 1. Environment Initialization
-Ensure you have Python 3.10+ installed. Activate your virtual environment and install dependencies:
+### Prerequisites
+*   **Python 3.10+** (Recommended: [Anaconda/Miniconda](https://www.anaconda.com/))
+*   **NVIDIA GPU** (Optional but recommended for SAM2 acceleration)
+*   **Git**
 
-```bash
-python -m venv .venv
-.\.venv\Scripts\activate
+### Step 1: Clone the Repository
+```powershell
+git clone <repository-url>
+cd AthletiQ
+```
+
+### Step 2: Environment Setup
+Create and activate a virtual environment:
+```powershell
+python -m venv venv
+.\venv\Scripts\activate
+```
+
+### Step 3: Install Dependencies
+```powershell
 pip install -r requirements.txt
 ```
 
-### 2. Model Prerequisites
-AthletiQ requires the following model binaries (excluded from Git for repository hygiene):
-- **SAM2 Hiera Small**: Place `sam2_hiera_small.pt` in `models/sam2/checkpoints/`.
-- **MediaPipe Pose**: Place `pose_landmarker.task` in `models/mediapipe/`.
-
-### 3. Execution
-
-Launch the unified dashboard:
-
-```bash
-python app/main_dashboard.py
-```
+### Step 4: Model Assets
+Ensure the following model assets are placed in the `models/` directory:
+*   **SAM2 Checkpoint**: `sam2_hiera_small.pt` should be in `models/sam2/checkpoints/`.
+*   **MediaPipe Task**: `pose_landmarker.task` should be in `models/mediapipe/`.
 
 ---
 
-## 🛠️ Technical Workflow
+## 📖 Usage Guide
 
-1. **Input Stage**: User uploads a practice video and selects the shot type (e.g., Cover Drive).
-2. **Segmentation**: User selects the batsman by clicking once. SAM2 propagates the mask through the video.
-3. **Biomechanics**: The system isolates the player and extracts 3D-pose landmarks using MediaPipe.
-4. **Alignment**: The DTW engine calculates the optimal temporal mapping between the practice and reference frames.
-5. **Output**: A side-by-side, slowed-down comparison video is rendered alongside a biomechanical JSON report.
+Currently, the analysis can be initiated through the **Unified Analytics Suite**:
 
----
+1.  **Initialize the Suite**:
+    ```powershell
+    python app/main_dashboard.py
+    ```
+2.  **Upload Footage**: Provide a raw practice video (mp4/avi).
+3.  **Identify Subject**: Select the athlete by clicking on them in the initial frame.
+4.  **Analyze**: Run the full pipeline to generate isolated cutouts and biomechanical JSON data.
+5.  **Compare**: Select a reference shot type to generate a synchronized side-by-side comparison.
 
-## 🖥️ Hardware Optimizations
-
-- **VRAM Management**: Automatic background downsampling (640px) ensures smooth operation on 4GB VRAM cards (RTX 3050 Laptop).
-- **Precision**: Uses `torch.set_float32_matmul_precision('high')` for Ampere architecture speedups.
-- **Inference**: Mixed-precision (`bfloat16`) enabled for compatible CUDA devices.
-
----
-
-## 🛡️ Git & Deployment
-- **.gitignore**: Configured to exclude all large video binaries, temporary frames, and model checkpoints.
-- **Stateless Analysis**: All intermediate frames and temporary data are cleared automatically on app exit to maintain privacy and disk space.
+### Usage Parameters
+| Parameter | Description | Recommended Value |
+| :--- | :--- | :--- |
+| `Device` | Compute backend | `cuda` (Automatic if available) |
+| `Resolution` | Internal processing width | `640px` (Normalized for efficiency) |
+| `Speed` | Comparison playback speed | `0.3x` |
 
 ---
 
-**AthletiQ - Precision Analytics for the Modern Game.**
+## 🛤 Roadmap
+*   **[UPCOMING] Web Interface**: Transitioning to a dedicated, high-performance Web UI version for enhanced user experience and cloud integration.
+*   **Multi-Angle Analysis**: Support for simultaneous processing of front-on and side-on footage.
+*   **Automated Coaching Narratives**: AI-generated feedback based on angle deviations.
