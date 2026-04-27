@@ -2,7 +2,7 @@
 
 **AthletiQ** is a state-of-the-art technical analysis suite designed for elite cricket performance tracking. By leveraging cutting-edge Computer Vision and Biomechanical modeling, AthletiQ transforms raw practice footage into actionable, frame-accurate insights.
 
----
+--- 
 
 ## 💡 Ideation
 In modern professional cricket, the difference between elite performance and average results often lies in the fine details of biomechanics and technical consistency. AthletiQ was conceived to democratize high-end sports lab analysis, providing coaches and athletes with a unified pipeline that automates player isolation, pose extraction, and standard-aligned shot comparison.
