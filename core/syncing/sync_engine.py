@@ -8,7 +8,7 @@ class SyncEngine:
         """Calculate Euclidean distance between two angle vectors."""
         v1 = np.array(v1)
         v2 = np.array(v2)
-        # Handle cases where some angles might be missing (empty dicts)
+        # Handle cases where some angles might be missing (empty lists)
         if v1.size == 0 or v2.size == 0:
             return 1000.0 # High penalty for missing pose
         return np.linalg.norm(v1 - v2)
@@ -16,8 +16,6 @@ class SyncEngine:
     def compute_dtw(self, practice_angles, reference_angles):
         """
         Dynamic Time Warping (DTW) to align two sequences.
-        practice_angles: list of lists (vectors)
-        reference_angles: list of lists (vectors)
         """
         n = len(practice_angles)
         m = len(reference_angles)
@@ -56,19 +54,22 @@ class SyncEngine:
         Sync practice video to reference video metadata.
         Returns a mapping of practice frames to reference frames.
         """
-        # Extract angle vectors for each frame
-        joints = [
-            "left_elbow", "right_elbow",
-            "left_shoulder", "right_shoulder",
-            "left_hip", "right_hip",
-            "left_knee", "right_knee"
-        ]
+        # Define weights to prioritize critical joints for cricket shots
+        # Shoulders and elbows are key for shot mechanics (swing path)
+        joint_weights = {
+            "left_elbow": 1.5, "right_elbow": 1.5,
+            "left_shoulder": 1.2, "right_shoulder": 1.2,
+            "left_hip": 1.0, "right_hip": 1.0,
+            "left_knee": 0.8, "right_knee": 0.8
+        }
+        joints = list(joint_weights.keys())
         
         def get_vector(frame):
             angles = frame.get("angles", {})
             if not angles:
                 return []
-            return [angles.get(j, 0.0) for j in joints]
+            # Apply weights during vector creation to ensure key joints drive the alignment
+            return [angles.get(j, 0.0) * joint_weights[j] for j in joints]
 
         practice_vectors = [get_vector(f) for f in practice_data["frames"]]
         reference_vectors = [get_vector(f) for f in reference_data["frames"]]
@@ -77,11 +78,8 @@ class SyncEngine:
         alignment_path = self.compute_dtw(practice_vectors, reference_vectors)
         
         # Convert path to a frame-by-frame mapping for the practice video
-        # We want to know for each practice frame, which reference frame is the closest match
         mapping = {}
         for p_idx, r_idx in alignment_path:
-            # If multiple reference frames match a single practice frame, we'll keep the last one or average?
-            # Usually, we want a 1-to-1 or many-to-one for playback.
             mapping[p_idx] = r_idx
             
         return mapping

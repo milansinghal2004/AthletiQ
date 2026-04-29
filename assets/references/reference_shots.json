@@ -1,10 +1,42 @@
 {
     "Cover Drive": {
-        "video_path": "data/input.mp4",
-        "angles_path": "shot_syncing/data/cover_drive_angles.json"
+        "video_path": "assets/references/cover_reference.mp4",
+        "angles_path": "assets/references/cover_reference.json"
+    },
+    "Defense": {
+        "video_path": "assets/references/defense_reference.mp4",
+        "angles_path": "assets/references/defense_reference.json"
+    },
+    "Flick": {
+        "video_path": "assets/references/flick_reference.mp4",
+        "angles_path": "assets/references/flick_reference.json"
+    },
+    "Hook": {
+        "video_path": "assets/references/hook_reference.mp4",
+        "angles_path": "assets/references/hook_reference.json"
+    },
+    "Late Cut": {
+        "video_path": "assets/references/late_cut_reference.mp4",
+        "angles_path": "assets/references/late_cut_reference.json"
+    },
+    "Lofted Shot": {
+        "video_path": "assets/references/lofted_reference.mp4",
+        "angles_path": "assets/references/lofted_reference.json"
+    },
+    "Pull Shot": {
+        "video_path": "assets/references/pull_reference.mp4",
+        "angles_path": "assets/references/pull_reference.json"
+    },
+    "Square Cut": {
+        "video_path": "assets/references/square_cut_reference.mp4",
+        "angles_path": "assets/references/square_cut_reference.json"
     },
     "Straight Drive": {
-        "video_path": "test_inputs/reference_straight_drive.mp4",
-        "angles_path": "shot_syncing/data/straight_drive_angles.json"
+        "video_path": "assets/references/straight_reference.mp4",
+        "angles_path": "assets/references/straight_reference.json"
+    },
+    "Sweep Shot": {
+        "video_path": "assets/references/sweep_reference.mp4",
+        "angles_path": "assets/references/sweep_reference.json"
     }
 }

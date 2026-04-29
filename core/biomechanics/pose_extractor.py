@@ -15,14 +15,16 @@ class PoseExtractor:
         PoseLandmarkerOptions = mp_vision.PoseLandmarkerOptions
         VisionRunningMode = mp_vision.RunningMode
 
-        # MediaPipe GPU delegate is not yet supported on Windows Python API.
-        # We use CPU for posture, while SAM2 handles the GPU heavy lifting.
+        # MediaPipe settings optimized for high-fidelity technical analysis
         self.options = PoseLandmarkerOptions(
             base_options=BaseOptions(
                 model_asset_path=self.model_asset_path,
                 delegate=BaseOptions.Delegate.CPU
             ),
             running_mode=VisionRunningMode.VIDEO,
+            min_pose_detection_confidence=0.5,
+            min_pose_presence_confidence=0.5,
+            min_tracking_confidence=0.5,
             output_segmentation_masks=False
         )
         
@@ -49,22 +51,55 @@ class PoseExtractor:
         angle = np.arccos(np.clip(cosine_angle, -1.0, 1.0))
         return float(np.degrees(angle))
 
+    def _interpolate_gaps(self, frames):
+        """Fill in missing joint angles and landmarks using linear interpolation for small gaps (<10 frames)."""
+        if not frames: return frames
+        
+        joints = ["left_elbow", "right_elbow", "left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_knee", "right_knee"]
+        landmark_keys = ["left_shoulder", "right_shoulder", "left_elbow", "right_elbow", "left_wrist", "right_wrist", "left_hip", "right_hip", "left_knee", "right_knee", "left_ankle", "right_ankle"]
+        
+        # 1. Interpolate Angles
+        for joint in joints:
+            idx_list = [i for i, f in enumerate(frames) if joint in f.get("angles", {})]
+            if len(idx_list) < 2: continue
+            
+            for i in range(len(idx_list) - 1):
+                start, end = idx_list[i], idx_list[i+1]
+                gap = end - start
+                if 1 < gap <= 10:
+                    val_start = frames[start]["angles"][joint]
+                    val_end = frames[end]["angles"][joint]
+                    for j in range(start + 1, end):
+                        frames[j]["angles"][joint] = val_start + (val_end - val_start) * ((j - start) / gap)
+
+        # 2. Interpolate Landmarks (for future stick model work)
+        for lm in landmark_keys:
+            idx_list = [i for i, f in enumerate(frames) if lm in f.get("landmarks", {})]
+            if len(idx_list) < 2: continue
+            
+            for i in range(len(idx_list) - 1):
+                start, end = idx_list[i], idx_list[i+1]
+                gap = end - start
+                if 1 < gap <= 10:
+                    ls_start, ls_end = frames[start]["landmarks"][lm], frames[end]["landmarks"][lm]
+                    for j in range(start + 1, end):
+                        factor = (j - start) / gap
+                        frames[j]["landmarks"][lm] = {
+                            "x": ls_start["x"] + (ls_end["x"] - ls_start["x"]) * factor,
+                            "y": ls_start["y"] + (ls_end["y"] - ls_start["y"]) * factor
+                        }
+        return frames
+
     def extract_from_video(self, video_path, progress_callback=None):
         cap = cv2.VideoCapture(video_path)
         fps = cap.get(cv2.CAP_PROP_FPS)
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        if fps == 0:
-            fps = 30.0
+        if fps == 0: fps = 30.0
             
         output_data = {
             "metadata": {
                 "fps": fps,
-                "joints": [
-                    "left_elbow", "right_elbow",
-                    "left_shoulder", "right_shoulder",
-                    "left_hip", "right_hip",
-                    "left_knee", "right_knee"
-                ]
+                "joints": ["left_elbow", "right_elbow", "left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_knee", "right_knee"]
             },
             "frames": []
         }
@@ -73,8 +108,7 @@ class PoseExtractor:
         with mp_vision.PoseLandmarker.create_from_options(self.options) as landmarker:
             while cap.isOpened():
                 ret, frame = cap.read()
-                if not ret:
-                    break
+                if not ret: break
                     
                 image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
@@ -85,7 +119,8 @@ class PoseExtractor:
                 frame_data = {
                     "frame_idx": frame_idx,
                     "time_sec": float(frame_idx / fps),
-                    "angles": {}
+                    "angles": {},
+                    "landmarks": {}
                 }
                 
                 if pose_result and pose_result.pose_landmarks and len(pose_result.pose_landmarks) > 0:
@@ -111,7 +146,6 @@ class PoseExtractor:
                     }
                     
                     try:
-                        # Existing angle logic remains for sync
                         p = {
                             "l_sh": get_pt(11), "r_sh": get_pt(12),
                             "l_el": get_pt(13), "r_el": get_pt(14),
@@ -131,7 +165,7 @@ class PoseExtractor:
                             "left_knee": self.calculate_angle(p["l_hp"], p["l_kn"], p["l_ak"]),
                             "right_knee": self.calculate_angle(p["r_hp"], p["r_kn"], p["r_ak"])
                         }
-                    except Exception as e:
+                    except Exception:
                         pass
                 
                 output_data["frames"].append(frame_data)
@@ -139,6 +173,8 @@ class PoseExtractor:
                 
                 if progress_callback and total_frames > 0:
                     progress_callback(frame_idx, total_frames, "Extracting Posture...")
-                
+        
         cap.release()
+        # Apply interpolation to fill gaps before returning result
+        output_data["frames"] = self._interpolate_gaps(output_data["frames"])
         return output_data
