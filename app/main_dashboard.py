@@ -205,44 +205,123 @@ def segment_player(video_path, click_coords, shot_type=None, progress=gr.Progres
                 json.dump(angle_results, f, indent=4)
         
         sync_comparison_path = None
+        score_feedback = "No shot selected for comparison."
         if shot_type and shot_type != "None" and sync_engine:
-            sync_comparison_path = sync_and_compare(video_path, shot_type, progress=progress)
+            result = sync_and_compare(video_path, shot_type, progress=progress)
+            if result:
+                sync_comparison_path, score_feedback = result
 
         if DEVICE == "cuda": torch.cuda.empty_cache()
-        return out_video_path, bio_json_path, sync_comparison_path
+        return out_video_path, bio_json_path, sync_comparison_path, score_feedback
     except Exception as e:
         print(f"Error in segment_player: {e}")
         traceback.print_exc()
         if DEVICE == "cuda": torch.cuda.empty_cache()
-        return None, None, None
+        return None, None, None, "An error occurred during processing."
 
 # --- Shot Sync Flow ---
 def load_references():
     if os.path.exists(REFERENCES_DB_PATH):
         with open(REFERENCES_DB_PATH, "r") as f:
-            return json.load(f)
+            refs = json.load(f)
+            # Inject stats path based on video name
+            for key, val in refs.items():
+                base = os.path.basename(val["video_path"])
+                prefix = base.split("_reference.mp4")[0]
+                val["stats_path"] = f"assets/references/{prefix}_stats.json"
+            return refs
     return {}
 
 def sync_and_compare(practice_video, shot_type, progress=gr.Progress()):
-    if not practice_video or not shot_type or not sync_engine: return None
+    if not practice_video or not shot_type or not sync_engine: return None, "Setup missing"
     refs = load_references()
-    if shot_type not in refs: return None
+    if shot_type not in refs: return None, "Shot not found"
+    
     ref_info = refs[shot_type]
     ref_video = os.path.normpath(os.path.join(PROJECT_ROOT, ref_info["video_path"]))
-    ref_angles_path = os.path.normpath(os.path.join(PROJECT_ROOT, ref_info["angles_path"]))
+    stats_path = os.path.normpath(os.path.join(PROJECT_ROOT, ref_info.get("stats_path", "")))
     
-    if not os.path.exists(ref_video): return None
+    if not os.path.exists(ref_video): return None, "Visual reference not found"
+    if not os.path.exists(stats_path): return None, "Stats reference not found"
+    
     def progress_cb(current, total, desc): progress((current / total) * 0.4, desc=desc)
     practice_data = extractor.extract_from_video(practice_video, progress_callback=progress_cb)
     
-    if os.path.exists(ref_angles_path):
-        with open(ref_angles_path, "r") as f: reference_data = json.load(f)
-    else:
-        reference_data = extractor.extract_from_video(ref_video)
-        with open(ref_angles_path, "w") as f: json.dump(reference_data, f)
+    with open(stats_path, "r") as f:
+        stats_data = json.load(f)
+        
+    # Reconstruct pseudo-reference data for DTW
+    reference_data = {"frames": []}
+    for frame_stat in stats_data["frames"]:
+        ref_frame = {
+            "frame_idx": frame_stat["frame_idx"],
+            "time_sec": frame_stat["time_sec"],
+            "angles": frame_stat.get("mean_angles", {})
+        }
+        reference_data["frames"].append(ref_frame)
         
     mapping = sync_engine.sync_videos(practice_data, reference_data)
-    return create_synced_video(practice_video, ref_video, mapping, progress=progress)
+    
+    # Calculate Score
+    joint_weights = {
+        "left_elbow": 1.5, "right_elbow": 1.5,
+        "left_shoulder": 1.2, "right_shoulder": 1.2,
+        "left_hip": 1.0, "right_hip": 1.0,
+        "left_knee": 0.8, "right_knee": 0.8
+    }
+    
+    total_score = 0
+    total_weight = 0
+    
+    for p_idx, r_idx in mapping.items():
+        if p_idx >= len(practice_data["frames"]) or r_idx >= len(stats_data["frames"]):
+            continue
+            
+        p_frame = practice_data["frames"][p_idx]
+        p_angles = p_frame.get("angles", {})
+        
+        stat_frame = stats_data["frames"][r_idx]
+        q1_angles = stat_frame.get("q1_angles", {})
+        q3_angles = stat_frame.get("q3_angles", {})
+        min_angles = stat_frame.get("min_angles", {})
+        max_angles = stat_frame.get("max_angles", {})
+        
+        for joint, weight in joint_weights.items():
+            if joint in p_angles and joint in q1_angles and joint in q3_angles:
+                val = p_angles[joint]
+                q1 = q1_angles[joint]
+                q3 = q3_angles[joint]
+                min_a = min_angles.get(joint, q1 - 10)
+                max_a = max_angles.get(joint, q3 + 10)
+                
+                score = 0
+                if q1 <= val <= q3:
+                    score = 100
+                elif val < q1:
+                    if val <= min_a or min_a == q1:
+                        score = 0
+                    else:
+                        score = 100 * (val - min_a) / (q1 - min_a)
+                elif val > q3:
+                    if val >= max_a or max_a == q3:
+                        score = 0
+                    else:
+                        score = 100 * (max_a - val) / (max_a - q3)
+                        
+                total_score += score * weight
+                total_weight += weight
+                
+    final_percentage = (total_score / total_weight) if total_weight > 0 else 0
+    feedback_str = f"### Overall Score: {final_percentage:.1f}%\n\n"
+    if final_percentage >= 90:
+        feedback_str += "Excellent technique! Your movements closely match the professional reference range."
+    elif final_percentage >= 75:
+        feedback_str += "Good shot. Some joints were outside the ideal interquartile range (IQR), but overall solid mechanics."
+    else:
+        feedback_str += "Needs improvement. Noticeable deviations from the ideal angles. Review the side-by-side comparison carefully."
+        
+    out_video = create_synced_video(practice_video, ref_video, mapping, progress=progress)
+    return out_video, feedback_str
 
 def create_synced_video(practice_video, reference_video, mapping, progress=None):
     cap_p = cv2.VideoCapture(practice_video)
@@ -301,6 +380,7 @@ with gr.Blocks() as demo:
             
             with gr.Column(scale=1):
                 gr.Markdown("### 📊 Analysis Results")
+                out_score = gr.Markdown("Score will appear here.")
                 out_isolated = gr.Video(label="Isolated Player (Cutout)")
                 out_comparison = gr.Video(label="Technical Comparison (Side-by-Side)")
                 out_json = gr.File(label="Joint Angle Data (JSON)")
@@ -318,7 +398,7 @@ with gr.Blocks() as demo:
 
         first_frame_display.select(handle_point_selection, clean_img_state, [click_coord_state, first_frame_display])
 
-        analyze_btn.click(segment_player, inputs=[playable_video_state, click_coord_state, shot_select], outputs=[out_isolated, out_json, out_comparison])
+        analyze_btn.click(segment_player, inputs=[playable_video_state, click_coord_state, shot_select], outputs=[out_isolated, out_json, out_comparison, out_score])
 
 if __name__ == "__main__":
     demo.launch(theme=gr.themes.Soft(), allowed_paths=[os.path.join(PROJECT_ROOT, "outputs")])
