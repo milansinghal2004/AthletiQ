@@ -16,8 +16,8 @@ assets/references/angles/*.json
 # Large Model Binaries (Exclude to avoid repo bloat)
 models/sam2/checkpoints/*.pt
 models/mediapipe/*.task
-models/shot_detection/*.pth
-models/shot_detection/*.pth.zip
+# models/shot_detection/*.pth
+# models/shot_detection/*.pth.zip
 
 # OS
 .DS_Store
