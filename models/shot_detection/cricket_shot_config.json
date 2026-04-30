@@ -1,0 +1,17 @@
+{
+    "num_frames": 16,
+    "frame_size": 112,
+    "num_classes": 10,
+    "classes": [
+        "cover",
+        "defense",
+        "flick",
+        "hook",
+        "late_cut",
+        "lofted",
+        "pull",
+        "square_cut",
+        "straight",
+        "sweep"
+    ]
+}
