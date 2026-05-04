@@ -1,134 +1,127 @@
-# AthletiQ: Unified Performance Pipeline
+# 🏏 AthletiQ: Unified Biomechanical Performance Pipeline
 
-**AthletiQ** is a state-of-the-art technical analysis suite designed for elite cricket performance tracking. By leveraging cutting-edge Computer Vision and Biomechanical modeling, AthletiQ transforms raw practice footage into actionable, frame-accurate insights.
-
---- 
-
-## 💡 Ideation
-
-In modern professional cricket, the difference between elite performance and average results often lies in the fine details of biomechanics and technical consistency. AthletiQ was conceived to democratize high-end sports lab analysis, providing coaches and athletes with a unified pipeline that automates player isolation, pose extraction, and standard-aligned shot comparison.
+AthletiQ is a state-of-the-art performance analysis platform designed to provide elite-level biomechanical feedback for cricket players. By leveraging cutting-edge computer vision and temporal alignment algorithms, AthletiQ transforms standard practice videos into detailed technical reports, comparing player movements against professional reference standards.
 
 ---
 
-## 🚀 Core Capabilities
+## 🌟 Key Features
 
-### 1. Precision Player Segmentation (Meta SAM2)
-
-Using Meta’s **Segment Anything Model 2 (SAM2)**, AthletiQ allows users to isolate a player from complex backgrounds with a single click. This ensures that technical analysis is focused entirely on the athlete, eliminating environmental noise.
-
-### 2. Biomechanical Extraction (MediaPipe)
-
-The system integrates **MediaPipe** Pose Landmarking to reconstruct 3D skeletal data. It automatically calculates critical technical metrics, including:
-
-* Joint angles (Elbow, Knee, Shoulder)
-* Stance stability
-* Power-transfer alignment
-
-### 3. Intelligent Shot Synchronization (SyncEngine)
-
-Equipped with a custom **SyncEngine** utilizing Dynamic Time Warping (DTW), the platform aligns user practice videos with professional reference standards in temporal space. This allows for precise, frame-by-frame comparison of shot mechanics regardless of recording speed.
-
-### 4. Technical Comparison Rendering
-
-Generates high-fidelity, side-by-side comparison videos at **0.3x slow motion**, enabling granular review of technical flaws and areas for improvement.
+- **Automatic Shot Classification**: Utilizes a deep 3D Convolutional Neural Network (R3D-18) to automatically identify 10+ types of cricket shots (Cover Drive, Sweep, Hook, etc.).
+- **AI-Powered Player Segmentation**: Integrates **Meta's SAM2 (Segment Anything Model 2)** to isolate the batsman from complex backgrounds, ensuring high-fidelity analysis even in noisy environments.
+- **High-Fidelity Pose Extraction**: Uses **MediaPipe Pose** with custom interpolation logic to track 33 joint landmarks and calculate critical biomechanical angles.
+- **Temporal Synchronization (DTW)**: Employs **Dynamic Time Warping** to align a practice video with professional reference shots, accounting for differences in speed and timing.
+- **Objective Technical Scoring**: Evaluates performance by comparing joint angles against professional **Interquartile Range (IQR)** statistics, providing an objective "Technical Score."
+- **Side-by-Side Visualization**: Generates slow-motion, frame-synced comparison videos for visual technical audits.
 
 ---
 
-## 📂 Project Structure
+## 🏗️ System Architecture
 
-```text
-AthletiQ/
-├── app/                    # Application entry points and analytics suite
-│   └── main_dashboard.py   # Unified Analytics Suite entry point
-├── core/                   # Core algorithmic packages
-│   ├── biomechanics/       # Pose extraction and angle calculation logic
-│   └── syncing/            # DTW-based synchronization engine
-├── models/                 # Pre-trained model checkpoints and configurations
-│   ├── sam2/               # Meta SAM2 assets
-│   └── mediapipe/          # Pose landmarker tasks
-├── assets/                 # Reference database and technical standards
-│   └── references/         # Shot-specific reference data (Videos/JSON)
-├── data/                   # Input data storage
-├── outputs/                # Processed analysis results (Segmented videos/JSON)
-└── requirements.txt        # Dependency specification
+The AthletiQ pipeline is built on a modular architecture that separates data acquisition, core processing, and interactive visualization.
+
+```mermaid
+graph TD
+    A[Video Input] --> B[Shot Classifier]
+    A --> C[SAM2 Segmentation]
+    B --> D[Reference Selection]
+    C --> E[Isolated Player Video]
+    E --> F[Pose Extractor]
+    F --> G[Biomechanical Angles]
+    G --> H[Sync Engine - DTW]
+    D --> H
+    H --> I[Scoring & Comparison]
+    I --> J[Final Dashboard Output]
 ```
 
 ---
 
-## 🎯 Target Audience & Relevance
+## 🔄 Processing Flow
 
-* **Professional Coaches**: Streamline technical reviews with automated segmentation and comparison.
-* **Performance Analysts**: Quantify movement patterns with high-precision biomechanical data.
-* **Atheletes**: Direct visual feedback against professional standards for self-paced improvement.
+AthletiQ follows a rigorous sequence to ensure accuracy from pixel to performance metric.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant G as Gradio UI
+    participant S as SAM2
+    participant B as Biomechanics
+    participant SE as Sync Engine
+
+    U->>G: Upload Video
+    G->>G: Detect Shot (R3D-18)
+    U->>G: Click Batsman
+    G->>S: Propagate Mask
+    S-->>G: Isolated Player Video
+    G->>B: Extract Pose (MediaPipe)
+    B-->>G: Joint Angle Time-Series
+    G->>SE: Align with Reference (DTW)
+    SE-->>G: Synced Mapping & IQR Score
+    G->>U: Display Comparison & Feedback
+```
 
 ---
 
-## 🛠 Installation (Windows)
+## 🛠️ Technical Deep-Dive
+
+### 1. Shot Classification (`core/shot_classifier.py`)
+The system identifies the shot type using a specialized R3D-18 model. This allows the pipeline to automatically pull the correct professional reference dataset (angles and video) for the specific movement being analyzed.
+
+### 2. Player Segmentation (`segment-anything-2`)
+Standard pose detection often struggles with busy cricket backgrounds (nets, fielders, equipment). AthletiQ uses SAM2 to isolate the player, creating a "clean" input stream for the biomechanical engine, which significantly improves landmark accuracy.
+
+### 3. Biomechanics & Pose Extraction (`core/biomechanics/`)
+- **PoseExtractor**: Wraps MediaPipe with a robust interpolation layer to fill temporal gaps in detection.
+- **Angle Calculation**: Computes relative angles for elbows, shoulders, hips, and knees—the fundamental building blocks of cricket mechanics.
+
+### 4. Sync Engine (`core/syncing/sync_engine.py`)
+Cricket shots happen at different speeds. The Sync Engine uses **Dynamic Time Warping (DTW)** to find the "optimal path" between practice and reference frames. This ensures that the comparison is technically valid regardless of the player's tempo.
+
+---
+
+## 🚀 Getting Started
 
 ### Prerequisites
+- Python 3.10+
+- NVIDIA GPU with CUDA (Highly Recommended for SAM2)
+- ffmpeg
 
-* **Python 3.10+** (Recommended: [Anaconda/Miniconda](https://www.anaconda.com/))
-* **NVIDIA GPU** (Optional but recommended for SAM2 acceleration)
-* **Git**
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone <repository-url>
+   cd AthletiQ
+   ```
 
-### Step 1: Clone the Repository
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-```powershell
-git clone <repository-url>
-cd AthletiQ
+3. Download Model Weights:
+   - SAM2 weights should be placed in `models/sam2/checkpoints/`
+   - Shot detection model in `models/shot_detection/`
+
+### Running the Dashboard
+Start the unified performance pipeline:
+```bash
+python app/main_dashboard.py
 ```
-
-### Step 2: Environment Setup
-
-Create and activate a virtual environment:
-
-```powershell
-python -m venv venv
-.\venv\Scripts\activate
-```
-
-### Step 3: Install Dependencies
-
-```powershell
-pip install -r requirements.txt
-```
-
-### Step 4: Model Assets
-
-Ensure the following model assets are placed in the `models/` directory:
-
-* **SAM2 Checkpoint**: `sam2_hiera_small.pt` should be in `models/sam2/checkpoints/`.
-* **MediaPipe Task**: `pose_landmarker.task` should be in `models/mediapipe/`.
+Access the UI via the local URL (typically `http://127.0.0.1:7860`).
 
 ---
 
-## 📖 Usage Guide
+## 📊 Output & Analytics
 
-Currently, the analysis can be initiated through the **Unified Analytics Suite**:
-
-1. **Initialize the Suite**:
-
-    ```powershell
-    python app/main_dashboard.py
-    ```
-
-2. **Upload Footage**: Provide a raw practice video (mp4/avi).
-3. **Identify Subject**: Select the athlete by clicking on them in the initial frame.
-4. **Analyze**: Run the full pipeline to generate isolated cutouts and biomechanical JSON data.
-5. **Compare**: Select a reference shot type to generate a synchronized side-by-side comparison.
-
-### Usage Parameters
-
-| Parameter | Description | Recommended Value |
-| :--- | :--- | :--- |
-| `Device` | Compute backend | `cuda` (Automatic if available) |
-| `Resolution` | Internal processing width | `640px` (Normalized for efficiency) |
-| `Speed` | Comparison playback speed | `0.3x` |
+AthletiQ provides multi-dimensional feedback:
+- **Technical Score (%)**: A weighted score based on how many frames fall within the professional IQR (Interquartile Range).
+- **Segmented Video**: An isolated MP4 of the player, useful for focusing on body shape.
+- **Comparison Video**: A side-by-side, synced MP4 for visual analysis.
+- **Biomechanics JSON**: Raw angle data for further statistical research or integration into third-party apps.
 
 ---
 
-## 🛤 Roadmap
+## 📜 License
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-* **[UPCOMING] Web Interface**: Transitioning to a dedicated, high-performance Web UI version for enhanced user experience and cloud integration.
-* **Multi-Angle Analysis**: Support for simultaneous processing of front-on and side-on footage.
-* **Automated Coaching Narratives**: AI-generated feedback based on angle deviations.
+---
+*Developed by AthletiQ Team - Precision Biomechanics for the Modern Game.*
