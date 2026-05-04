@@ -195,13 +195,31 @@ def segment_player(video_path, click_coords, shot_type=None, progress=gr.Progres
             predictor.add_new_points(inference_state, frame_idx=0, obj_id=1, points=points, labels=labels)
             
             video_segments = {}
+            tracked_indices = []
             print("Running SAM2 Propagation...")
             for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
                 progress(out_frame_idx / 100, desc=f"Propagating SAM2 (Frame {out_frame_idx})...")
-                video_segments[out_frame_idx] = {
-                    out_obj_id: (out_mask_logits[i] > 0.0).cpu().numpy()
-                    for i, out_obj_id in enumerate(out_obj_ids)
-                }
+                
+                # Identify if batsman (obj_id 1) is being tracked in this frame
+                frame_masks = {}
+                is_tracked = False
+                for i, out_obj_id in enumerate(out_obj_ids):
+                    mask = (out_mask_logits[i] > 0.0).cpu().numpy()
+                    frame_masks[out_obj_id] = mask
+                    if out_obj_id == 1 and mask.any() and mask.sum() > 100:
+                        is_tracked = True
+                
+                video_segments[out_frame_idx] = frame_masks
+                if is_tracked:
+                    tracked_indices.append(out_frame_idx)
+
+            if not tracked_indices:
+                print("Warning: No batsman tracking data found.")
+                return None, None, None, "Could not track the batsman. Please try clicking again."
+            
+            start_idx = min(tracked_indices)
+            end_idx = max(tracked_indices)
+            print(f"🏏 Autoclipping: Batsman tracked from frame {start_idx} to {end_idx}")
         
         out_video_path = os.path.join(PROJECT_ROOT, "outputs/output_segmented.mp4")
         os.makedirs(os.path.dirname(out_video_path), exist_ok=True)
@@ -213,21 +231,27 @@ def segment_player(video_path, click_coords, shot_type=None, progress=gr.Progres
         writer = imageio.get_writer(out_video_path, fps=fps, codec='libx264', pixelformat='yuv420p', macro_block_size=None)
     
         idx = 0
+        frames_written = 0
         while True:
             ret, frame = cap.read()
             if not ret: break
-            progress(idx / max(1, total_frames), desc=f"Rendering Isolated Player (Frame {idx}/{total_frames})...")
             
-            isolated_frame = np.zeros_like(frame)
-            if idx in video_segments and 1 in video_segments[idx]:
-                mask = video_segments[idx][1]
-                if mask.ndim == 3: mask = mask[0]
-                if mask.shape[0] != frame.shape[0] or mask.shape[1] != frame.shape[1]:
-                    mask = cv2.resize(mask.astype(np.uint8), (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_NEAREST)
-                mask_indices = mask > 0
-                isolated_frame[mask_indices] = frame[mask_indices]
+            # Autoclipping: Only write frames within the tracked range
+            if start_idx <= idx <= end_idx:
+                progress(frames_written / max(1, (end_idx - start_idx + 1)), desc=f"Rendering Isolated Player (Frame {idx}/{end_idx})...")
+                
+                isolated_frame = np.zeros_like(frame)
+                if idx in video_segments and 1 in video_segments[idx]:
+                    mask = video_segments[idx][1]
+                    if mask.ndim == 3: mask = mask[0]
+                    if mask.shape[0] != frame.shape[0] or mask.shape[1] != frame.shape[1]:
+                        mask = cv2.resize(mask.astype(np.uint8), (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_NEAREST)
+                    mask_indices = mask > 0
+                    isolated_frame[mask_indices] = frame[mask_indices]
+                
+                writer.append_data(cv2.cvtColor(isolated_frame, cv2.COLOR_BGR2RGB))
+                frames_written += 1
             
-            writer.append_data(cv2.cvtColor(isolated_frame, cv2.COLOR_BGR2RGB))
             idx += 1
         cap.release()
         writer.close()
@@ -248,7 +272,8 @@ def segment_player(video_path, click_coords, shot_type=None, progress=gr.Progres
         sync_comparison_path = None
         score_feedback = "No shot selected for comparison."
         if shot_type and shot_type != "None" and sync_engine:
-            result = sync_and_compare(video_path, shot_type, progress=progress)
+            # Use the CLIPPED video for comparison to improve DTW accuracy
+            result = sync_and_compare(out_video_path, shot_type, progress=progress)
             if result:
                 sync_comparison_path, score_feedback = result
 
