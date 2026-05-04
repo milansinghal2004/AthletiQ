@@ -316,18 +316,46 @@ def sync_and_compare(practice_video, shot_type, progress=gr.Progress()):
     with open(stats_path, "r") as f:
         stats_data = json.load(f)
         
-    # Reconstruct pseudo-reference data for DTW
-    reference_data = {"frames": []}
-    for frame_stat in stats_data["frames"]:
-        ref_frame = {
-            "frame_idx": frame_stat["frame_idx"],
-            "time_sec": frame_stat["time_sec"],
-            "angles": frame_stat.get("mean_angles", {})
-        }
-        reference_data["frames"].append(ref_frame)
+    # Load full reference pose data (including landmarks) for phase detection
+    ref_angles_path = os.path.normpath(os.path.join(PROJECT_ROOT, ref_info.get("angles_path", "")))
+    if os.path.exists(ref_angles_path):
+        with open(ref_angles_path, "r") as f:
+            reference_data = json.load(f)
+    else:
+        # Fallback to pseudo-reference from stats if full JSON missing
+        reference_data = {"frames": []}
+        for frame_stat in stats_data["frames"]:
+            reference_data["frames"].append({
+                "frame_idx": frame_stat["frame_idx"],
+                "time_sec": frame_stat["time_sec"],
+                "angles": frame_stat.get("mean_angles", {})
+            })
         
-    mapping = sync_engine.sync_videos(practice_data, reference_data)
+    alignment_path, p_phases, r_phases = sync_engine.sync_videos(practice_data, reference_data)
     
+    # Terminal Reporting with Colors
+    GREEN = "\033[92m"
+    BOLD = "\033[1m"
+    RESET = "\033[0m"
+    
+    print(f"\n{BOLD}Analysis for Shot Type: {GREEN}{shot_type}{RESET}")
+    if p_phases and r_phases:
+        print(f"{GREEN}Frame Generalization Data:{RESET}")
+        print(f"  - Practice Strike: {GREEN}Frame {p_phases['strike']}{RESET}")
+        print(f"  - Reference Strike: {GREEN}Frame {r_phases['strike']}{RESET}\n")
+
+    # Create mapping for scoring (last-win logic is fine for statistical scoring)
+    mapping = {p: r for p, r in alignment_path}
+    
+    # Save frame generalization (phases) metadata
+    meta_path = os.path.join(PROJECT_ROOT, "outputs/sync_metadata.json")
+    with open(meta_path, "w") as f:
+        json.dump({
+            "shot_type": shot_type,
+            "practice_phases": p_phases,
+            "reference_phases": r_phases
+        }, f, indent=4)
+
     # Calculate Score
     joint_weights = {
         "left_elbow": 1.5, "right_elbow": 1.5,
@@ -379,6 +407,7 @@ def sync_and_compare(practice_video, shot_type, progress=gr.Progress()):
                 
     final_percentage = (total_score / total_weight) if total_weight > 0 else 0
     feedback_str = f"### Overall Score: {final_percentage:.1f}%\n\n"
+    
     if final_percentage >= 90:
         feedback_str += "Excellent technique! Your movements closely match the professional reference range."
     elif final_percentage >= 75:
@@ -386,10 +415,10 @@ def sync_and_compare(practice_video, shot_type, progress=gr.Progress()):
     else:
         feedback_str += "Needs improvement. Noticeable deviations from the ideal angles. Review the side-by-side comparison carefully."
         
-    out_video = create_synced_video(practice_video, ref_video, mapping, progress=progress)
+    out_video = create_synced_video(practice_video, ref_video, alignment_path, progress=progress)
     return out_video, feedback_str
 
-def create_synced_video(practice_video, reference_video, mapping, progress=None):
+def create_synced_video(practice_video, reference_video, alignment_path, progress=None):
     cap_p = cv2.VideoCapture(practice_video)
     cap_r = cv2.VideoCapture(reference_video)
     fps = cap_p.get(cv2.CAP_PROP_FPS) or 30.0
@@ -405,6 +434,7 @@ def create_synced_video(practice_video, reference_video, mapping, progress=None)
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     writer = imageio.get_writer(out_path, fps=slow_fps, codec='libx264', pixelformat='yuv420p', macro_block_size=None)
     
+    # Pre-load all frames for smooth indexed access
     ref_frames = []
     while True:
         ret, f = cap_r.read()
@@ -412,23 +442,29 @@ def create_synced_video(practice_video, reference_video, mapping, progress=None)
         ref_frames.append(cv2.resize(cv2.cvtColor(f, cv2.COLOR_BGR2RGB), (new_w_r, target_h)))
     cap_r.release()
     
-    p_idx = 0
-    total_p = int(cap_p.get(cv2.CAP_PROP_FRAME_COUNT))
+    p_frames = []
     while True:
-        ret, frame_p = cap_p.read()
+        ret, f = cap_p.read()
         if not ret: break
-        r_idx = mapping.get(p_idx, 0)
+        p_frames.append(cv2.resize(cv2.cvtColor(f, cv2.COLOR_BGR2RGB), (new_w_p, target_h)))
+    cap_p.release()
+    
+    total_steps = len(alignment_path)
+    for step_idx, (p_idx, r_idx) in enumerate(alignment_path):
+        if p_idx >= len(p_frames): p_idx = len(p_frames) - 1
         if r_idx >= len(ref_frames): r_idx = len(ref_frames) - 1
+        
+        frame_p = p_frames[p_idx]
         frame_r = ref_frames[r_idx]
-        p_resized = cv2.resize(cv2.cvtColor(frame_p, cv2.COLOR_BGR2RGB), (new_w_p, target_h))
-        combined = np.hstack((p_resized, frame_r))
+        
+        combined = np.hstack((frame_p, frame_r))
         cv2.putText(combined, "PRACTICE", (10,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,0), 2)
         cv2.putText(combined, "REFERENCE", (new_w_p+10,30), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
         writer.append_data(combined)
-        p_idx += 1
-        if progress: progress(0.6 + (p_idx/total_p)*0.4, desc="Rendering Comparison...")
+        
+        if progress: 
+            progress(0.6 + (step_idx/total_steps)*0.4, desc="Rendering Comparison...")
     
-    cap_p.release()
     writer.close()
     return out_path
 
