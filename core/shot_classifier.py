@@ -34,7 +34,7 @@ class ShotClassifier:
         self.mean = np.array([0.485, 0.456, 0.406])
         self.std  = np.array([0.229, 0.224, 0.225])
 
-        print(f"✅ ShotClassifier loaded on {self.device}")
+        print(f"ShotClassifier loaded on {self.device}")
         print(f"   Classes: {self.classes}")
 
     def _sample_frames(self, video_path):

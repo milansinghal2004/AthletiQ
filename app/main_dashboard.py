@@ -34,6 +34,8 @@ except ImportError as e:
     compute_joint_angles = None
     ShotClassifier = None
 
+from app.plotting_utils import generate_biomechanic_plot
+
 try:
     from sam2.build_sam import build_sam2_video_predictor
     import sam2.utils.misc
@@ -257,33 +259,33 @@ def segment_player(video_path, click_coords, shot_type=None, progress=gr.Progres
         writer.close()
     
         bio_json_path = os.path.join(PROJECT_ROOT, "outputs/segmented_biomechanics.json")
-        if extractor and compute_joint_angles:
+        if extractor:
             def bio_progress(curr, total, msg):
                 progress(curr / max(1, total), desc=f"Biomechanics: {msg}")
             pose_data = extractor.extract_from_video(out_video_path, progress_callback=bio_progress)
             angle_results = []
             for frame in pose_data["frames"]:
-                if "landmarks" in frame:
-                    angles = compute_joint_angles(frame["landmarks"])
-                    angle_results.append({"frame": frame["frame_idx"], "time": frame["time_sec"], **angles})
+                if "angles" in frame:
+                    angle_results.append({"frame": frame["frame_idx"], "time": frame["time_sec"], **frame["angles"]})
             with open(bio_json_path, "w") as f:
                 json.dump(angle_results, f, indent=4)
         
         sync_comparison_path = None
         score_feedback = "No shot selected for comparison."
+        plots = [None] * 6 # Elbows (2), Knees (2), Hips (2)
         if shot_type and shot_type != "None" and sync_engine:
             # Use the CLIPPED video for comparison to improve DTW accuracy
             result = sync_and_compare(out_video_path, shot_type, progress=progress)
             if result:
-                sync_comparison_path, score_feedback = result
+                sync_comparison_path, score_feedback, plots = result
 
         if DEVICE == "cuda": torch.cuda.empty_cache()
-        return out_video_path, bio_json_path, sync_comparison_path, score_feedback
+        return out_video_path, bio_json_path, sync_comparison_path, score_feedback, *plots
     except Exception as e:
         print(f"Error in segment_player: {e}")
         traceback.print_exc()
         if DEVICE == "cuda": torch.cuda.empty_cache()
-        return None, None, None, "An error occurred during processing."
+        return None, None, None, "An error occurred during processing.", None, None, None, None
 
 # --- Shot Sync Flow ---
 def load_references():
@@ -299,16 +301,16 @@ def load_references():
     return {}
 
 def sync_and_compare(practice_video, shot_type, progress=gr.Progress()):
-    if not practice_video or not shot_type or not sync_engine: return None, "Setup missing"
+    if not practice_video or not shot_type or not sync_engine: return None, "Setup missing", [None, None, None, None, None, None]
     refs = load_references()
-    if shot_type not in refs: return None, "Shot not found"
+    if shot_type not in refs: return None, "Shot not found", [None, None, None, None, None, None]
     
     ref_info = refs[shot_type]
     ref_video = os.path.normpath(os.path.join(PROJECT_ROOT, ref_info["video_path"]))
     stats_path = os.path.normpath(os.path.join(PROJECT_ROOT, ref_info.get("stats_path", "")))
     
-    if not os.path.exists(ref_video): return None, "Visual reference not found"
-    if not os.path.exists(stats_path): return None, "Stats reference not found"
+    if not os.path.exists(ref_video): return None, "Visual reference not found", [None, None, None, None, None, None]
+    if not os.path.exists(stats_path): return None, "Stats reference not found", [None, None, None, None, None, None]
     
     def progress_cb(current, total, desc): progress((current / total) * 0.4, desc=desc)
     practice_data = extractor.extract_from_video(practice_video, progress_callback=progress_cb)
@@ -356,7 +358,7 @@ def sync_and_compare(practice_video, shot_type, progress=gr.Progress()):
             "reference_phases": r_phases
         }, f, indent=4)
 
-    # Calculate Score
+    # Calculate Numerical Score
     joint_weights = {
         "left_elbow": 1.5, "right_elbow": 1.5,
         "left_shoulder": 1.2, "right_shoulder": 1.2,
@@ -371,52 +373,64 @@ def sync_and_compare(practice_video, shot_type, progress=gr.Progress()):
         if p_idx >= len(practice_data["frames"]) or r_idx >= len(stats_data["frames"]):
             continue
             
-        p_frame = practice_data["frames"][p_idx]
-        p_angles = p_frame.get("angles", {})
-        
+        p_angles = practice_data["frames"][p_idx].get("angles", {})
         stat_frame = stats_data["frames"][r_idx]
-        q1_angles = stat_frame.get("q1_angles", {})
-        q3_angles = stat_frame.get("q3_angles", {})
-        min_angles = stat_frame.get("min_angles", {})
-        max_angles = stat_frame.get("max_angles", {})
+        q1_a = stat_frame.get("q1_angles", {})
+        q3_a = stat_frame.get("q3_angles", {})
+        min_a_ref = stat_frame.get("min_angles", {})
+        max_a_ref = stat_frame.get("max_angles", {})
         
         for joint, weight in joint_weights.items():
-            if joint in p_angles and joint in q1_angles and joint in q3_angles:
+            if joint in p_angles and joint in q1_a and joint in q3_a:
                 val = p_angles[joint]
-                q1 = q1_angles[joint]
-                q3 = q3_angles[joint]
-                min_a = min_angles.get(joint, q1 - 10)
-                max_a = max_angles.get(joint, q3 + 10)
+                q1, q3 = q1_a[joint], q3_a[joint]
+                mn, mx = min_a_ref.get(joint, q1-10), max_a_ref.get(joint, q3+10)
                 
-                score = 0
-                if q1 <= val <= q3:
-                    score = 100
-                elif val < q1:
-                    if val <= min_a or min_a == q1:
-                        score = 0
-                    else:
-                        score = 100 * (val - min_a) / (q1 - min_a)
-                elif val > q3:
-                    if val >= max_a or max_a == q3:
-                        score = 0
-                    else:
-                        score = 100 * (max_a - val) / (max_a - q3)
-                        
-                total_score += score * weight
+                s = 100 if q1 <= val <= q3 else (
+                    100 * (val - mn) / (q1 - mn) if val < q1 and mn != q1 else
+                    100 * (mx - val) / (mx - q3) if val > q3 and mx != q3 else 0
+                )
+                total_score += max(0, s) * weight
                 total_weight += weight
                 
     final_percentage = (total_score / total_weight) if total_weight > 0 else 0
-    feedback_str = f"### Overall Score: {final_percentage:.1f}%\n\n"
+    feedback_str = f"### 📊 Overall Accuracy Score: {final_percentage:.1f}%\n"
+    feedback_str += "Biomechanical sync complete. Ready for external LLM evaluation."
     
-    if final_percentage >= 90:
-        feedback_str += "Excellent technique! Your movements closely match the professional reference range."
-    elif final_percentage >= 75:
-        feedback_str += "Good shot. Some joints were outside the ideal interquartile range (IQR), but overall solid mechanics."
-    else:
-        feedback_str += "Needs improvement. Noticeable deviations from the ideal angles. Review the side-by-side comparison carefully."
         
+    # ── Generate Plotly Charts & Detailed Breakdown ────────────────────────
+    plots = []
+    breakdown_items = []
+    try:
+        # Critical joints for cricket
+        joints_to_plot = ["left_elbow", "right_elbow", "left_knee", "right_knee", "left_hip", "right_hip"]
+        
+        for joint in joints_to_plot:
+            p_vals = []
+            q1_vals = []
+            q3_vals = []
+            mean_vals = []
+            
+            for p_idx, r_idx in mapping.items():
+                if p_idx < len(practice_data["frames"]) and r_idx < len(stats_data["frames"]):
+                    p_angle = practice_data["frames"][p_idx].get("angles", {}).get(joint, 0)
+                    p_vals.append(p_angle)
+                    q1_vals.append(stats_data["frames"][r_idx].get("q1_angles", {}).get(joint, 0))
+                    q3_vals.append(stats_data["frames"][r_idx].get("q3_angles", {}).get(joint, 0))
+                    mean_vals.append(stats_data["frames"][r_idx].get("mean_angles", {}).get(joint, 0))
+            
+            ref_stats = {"q1": q1_vals, "q3": q3_vals, "mean": mean_vals}
+            fig = generate_biomechanic_plot(joint, p_vals, ref_stats, p_phases)
+            plots.append(fig)
+            
+        # Breakdown items calculation removed for external LLM evaluation.
+            
+    except Exception as e:
+        print(f"Error generating plots/breakdown: {e}")
+        if not plots: plots = [None] * 6
+
     out_video = create_synced_video(practice_video, ref_video, alignment_path, progress=progress)
-    return out_video, feedback_str
+    return out_video, feedback_str, plots
 
 def create_synced_video(practice_video, reference_video, alignment_path, progress=None):
     cap_p = cv2.VideoCapture(practice_video)
@@ -487,6 +501,28 @@ with gr.Blocks() as demo:
                 out_comparison = gr.Video(label="Technical Comparison (Side-by-Side)")
                 out_json = gr.File(label="Joint Angle Data (JSON)")
 
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown("### 📈 Biomechanical Angle Trends")
+                with gr.Tabs():
+                    with gr.Tab("Elbows"):
+                        plot_l_elbow = gr.Plot(label="Left Elbow")
+                        plot_r_elbow = gr.Plot(label="Right Elbow")
+                    with gr.Tab("Knees"):
+                        plot_l_knee = gr.Plot(label="Left Knee")
+                        plot_r_knee = gr.Plot(label="Right Knee")
+                    with gr.Tab("Hips"):
+                        plot_l_hip = gr.Plot(label="Left Hip")
+                        plot_r_hip = gr.Plot(label="Right Hip")
+
+        with gr.Accordion("ℹ️ How to read these charts?", open=False):
+            gr.Markdown("""
+            - **Blue Line**: Your technique.
+            - **Green Shaded Area**: The Professional 'Ideal' Zone (IQR).
+            - **Dashed Red Line**: The moment of impact (Strike).
+            - **Goal**: Keep your blue line within or close to the green corridor during the strike phase.
+            """)
+
         clean_img_state = gr.State()
         click_coord_state = gr.State()
 
@@ -499,7 +535,14 @@ with gr.Blocks() as demo:
 
         first_frame_display.select(handle_point_selection, clean_img_state, [click_coord_state, first_frame_display])
 
-        analyze_btn.click(segment_player, inputs=[video_input, click_coord_state, shot_select], outputs=[out_isolated, out_json, out_comparison, out_score])
+        analyze_btn.click(
+            segment_player, 
+            inputs=[video_input, click_coord_state, shot_select], 
+            outputs=[
+                out_isolated, out_json, out_comparison, out_score, 
+                plot_l_elbow, plot_r_elbow, plot_l_knee, plot_r_knee, plot_l_hip, plot_r_hip
+            ]
+        )
 
 if __name__ == "__main__":
     demo.launch(theme=gr.themes.Soft(), allowed_paths=[os.path.join(PROJECT_ROOT, "outputs")])
