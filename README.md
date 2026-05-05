@@ -1,17 +1,18 @@
 # 🏏 AthletiQ: Unified Biomechanical Performance Pipeline
 
-AthletiQ is a state-of-the-art performance analysis platform designed to provide elite-level biomechanical feedback for cricket players. By leveraging cutting-edge computer vision and temporal alignment algorithms, AthletiQ transforms standard practice videos into detailed technical reports, comparing player movements against professional reference standards.
+AthletiQ is a state-of-the-art performance analysis platform designed to provide elite-level biomechanical feedback for cricket players. By leveraging cutting-edge computer vision, temporal alignment algorithms, and automated phase detection, AthletiQ transforms standard practice videos into detailed technical reports.
 
 ---
 
 ## 🌟 Key Features
 
-- **Automatic Shot Classification**: Utilizes a deep 3D Convolutional Neural Network (R3D-18) to automatically identify 10+ types of cricket shots (Cover Drive, Sweep, Hook, etc.).
-- **AI-Powered Player Segmentation**: Integrates **Meta's SAM2 (Segment Anything Model 2)** to isolate the batsman from complex backgrounds, ensuring high-fidelity analysis even in noisy environments.
-- **High-Fidelity Pose Extraction**: Uses **MediaPipe Pose** with custom interpolation logic to track 33 joint landmarks and calculate critical biomechanical angles.
-- **Temporal Synchronization (DTW)**: Employs **Dynamic Time Warping** to align a practice video with professional reference shots, accounting for differences in speed and timing.
-- **Objective Technical Scoring**: Evaluates performance by comparing joint angles against professional **Interquartile Range (IQR)** statistics, providing an objective "Technical Score."
-- **Side-by-Side Visualization**: Generates slow-motion, frame-synced comparison videos for visual technical audits.
+- **Automatic Shot Classification**: Utilizes a deep 3D Convolutional Neural Network (R3D-18) to automatically identify 10+ types of cricket shots.
+- **AI-Powered Player Segmentation**: Integrates **Meta's SAM2** to isolate the batsman, removing background interference.
+- **Automatic Motion Clipping (Autoclipping)**: Automatically trims video to the active motion range based on real-time tracking data, ensuring analysis focuses only on the shot.
+- **Segmented DTW Alignment**: An advanced version of Dynamic Time Warping that aligns videos in two distinct phases (Start-to-Strike and Strike-to-End) for pinpoint accuracy.
+- **Strike Detection & Phase Analysis**: Automatically identifies the "Strike" (impact) moment by analyzing wrist trajectories and vertical displacement.
+- **Objective Technical Scoring**: Evaluates performance by comparing joint angles against professional **Interquartile Range (IQR)** statistics.
+- **Side-by-Side Visualization**: Generates slow-motion, frame-synced comparison videos with phase-aligned rendering.
 
 ---
 
@@ -24,10 +25,10 @@ graph TD
     A[Video Input] --> B[Shot Classifier]
     A --> C[SAM2 Segmentation]
     B --> D[Reference Selection]
-    C --> E[Isolated Player Video]
+    C --> E[Autoclipped Player Video]
     E --> F[Pose Extractor]
     F --> G[Biomechanical Angles]
-    G --> H[Sync Engine - DTW]
+    G --> H[Sync Engine - Segmented DTW]
     D --> H
     H --> I[Scoring & Comparison]
     I --> J[Final Dashboard Output]
@@ -51,10 +52,12 @@ sequenceDiagram
     G->>G: Detect Shot (R3D-18)
     U->>G: Click Batsman
     G->>S: Propagate Mask
-    S-->>G: Isolated Player Video
+    S-->>G: Isolated Video & Motion Range
+    G->>G: Autoclip to Active Motion
     G->>B: Extract Pose (MediaPipe)
     B-->>G: Joint Angle Time-Series
-    G->>SE: Align with Reference (DTW)
+    G->>SE: Identify Phases (Strike Point)
+    G->>SE: Segmented DTW Alignment
     SE-->>G: Synced Mapping & IQR Score
     G->>U: Display Comparison & Feedback
 ```
@@ -64,17 +67,18 @@ sequenceDiagram
 ## 🛠️ Technical Deep-Dive
 
 ### 1. Shot Classification (`core/shot_classifier.py`)
-The system identifies the shot type using a specialized R3D-18 model. This allows the pipeline to automatically pull the correct professional reference dataset (angles and video) for the specific movement being analyzed.
+Identifies the shot type using a specialized R3D-18 model, automatically pulling the correct professional reference dataset.
 
-### 2. Player Segmentation (`segment-anything-2`)
-Standard pose detection often struggles with busy cricket backgrounds (nets, fielders, equipment). AthletiQ uses SAM2 to isolate the player, creating a "clean" input stream for the biomechanical engine, which significantly improves landmark accuracy.
+### 2. Player Segmentation & Autoclipping (`segment-anything-2`)
+Uses SAM2 to isolate the player. The system now includes **Autoclipping logic** that identifies the exact frames where the batsman is active, trimming the video to remove irrelevant pre-shot and post-shot footage.
 
 ### 3. Biomechanics & Pose Extraction (`core/biomechanics/`)
-- **PoseExtractor**: Wraps MediaPipe with a robust interpolation layer to fill temporal gaps in detection.
-- **Angle Calculation**: Computes relative angles for elbows, shoulders, hips, and knees—the fundamental building blocks of cricket mechanics.
+Extracts 33 joint landmarks and calculates relative angles for critical joints (elbows, shoulders, hips, knees). Includes a robust interpolation layer for consistent tracking.
 
-### 4. Sync Engine (`core/syncing/sync_engine.py`)
-Cricket shots happen at different speeds. The Sync Engine uses **Dynamic Time Warping (DTW)** to find the "optimal path" between practice and reference frames. This ensures that the comparison is technically valid regardless of the player's tempo.
+### 4. Sync Engine: Segmented DTW (`core/syncing/sync_engine.py`)
+A major upgrade from global alignment. The engine now:
+- **Identifies Phases**: Detects the "Strike" moment by analyzing the vertical Y-coordinate of the wrists.
+- **Segmented Alignment**: Performs separate DTW alignments for the backlift (Start-to-Strike) and the follow-through (Strike-to-End). This prevents temporal drift and ensures that the most critical moment of the shot is perfectly aligned.
 
 ---
 
@@ -86,42 +90,34 @@ Cricket shots happen at different speeds. The Sync Engine uses **Dynamic Time Wa
 - ffmpeg
 
 ### Installation
-1. Clone the repository:
+1. Clone the repository and install dependencies:
    ```bash
    git clone <repository-url>
    cd AthletiQ
-   ```
-
-2. Install dependencies:
-   ```bash
    pip install -r requirements.txt
    ```
 
-3. Download Model Weights:
-   - SAM2 weights should be placed in `models/sam2/checkpoints/`
-   - Shot detection model in `models/shot_detection/`
+2. Download Model Weights to the `models/` directory.
 
 ### Running the Dashboard
-Start the unified performance pipeline:
 ```bash
 python app/main_dashboard.py
 ```
-Access the UI via the local URL (typically `http://127.0.0.1:7860`).
 
 ---
 
 ## 📊 Output & Analytics
 
-AthletiQ provides multi-dimensional feedback:
-- **Technical Score (%)**: A weighted score based on how many frames fall within the professional IQR (Interquartile Range).
-- **Segmented Video**: An isolated MP4 of the player, useful for focusing on body shape.
-- **Comparison Video**: A side-by-side, synced MP4 for visual analysis.
-- **Biomechanics JSON**: Raw angle data for further statistical research or integration into third-party apps.
+- **Technical Score (%)**: Weighted score based on professional IQR alignment.
+- **Autoclipped Segmented Video**: Trimmmed, isolated video of the player.
+- **Comparison Video**: Phase-synced, side-by-side slow-motion video.
+- **Biomechanics JSON**: Raw joint angle time-series data.
+- **Sync Metadata (`sync_metadata.json`)**: Detailed breakdown of detected phases (start, strike, end) for both practice and reference.
 
 ---
 
 ## 📜 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT License.
 
 ---
 *Developed by AthletiQ Team - Precision Biomechanics for the Modern Game.*
