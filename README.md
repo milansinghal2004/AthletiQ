@@ -10,7 +10,12 @@ AthletiQ is a state-of-the-art performance analysis platform designed to provide
 - **AI-Powered Player Segmentation**: Integrates **Meta's SAM2** to isolate the batsman, removing background interference.
 - **Automatic Motion Clipping (Autoclipping)**: Automatically trims video to the active motion range based on real-time tracking data, ensuring analysis focuses only on the shot.
 - **Segmented DTW Alignment**: An advanced version of Dynamic Time Warping that aligns videos in two distinct phases (Start-to-Strike and Strike-to-End) for pinpoint accuracy.
-- **Strike Detection & Phase Analysis**: Automatically identifies the "Strike" (impact) moment by analyzing wrist trajectories and vertical displacement.
+- **Performance Pipeline Trigger**: A unified API-ready class that can be integrated into FastAPI, Flask, or Node.js backends.
+- **Full-Body Biometrics**: Now tracks **Hip, Elbow, Knee, and Shoulder** angles for comprehensive postural analysis.
+- **Interactive Plotly Trends**: Real-time interactive charts showing your technique vs. professional IQR corridors across the entire shot.
+- **Automatic Shot Classification**: Utilizes a deep 3D Convolutional Neural Network (R3D-18) to identify 10+ shot types.
+- **AI-Powered Player Segmentation**: Integrates **Meta's SAM2** to isolate the batsman.
+- **Segmented DTW Alignment**: Aligns videos across critical phases (Backlift to Strike, Strike to Follow-through).
 - **Objective Technical Scoring**: Evaluates performance by comparing joint angles against professional **Interquartile Range (IQR)** statistics.
 - **Side-by-Side Visualization**: Generates slow-motion, frame-synced comparison videos with phase-aligned rendering.
 
@@ -18,7 +23,13 @@ AthletiQ is a state-of-the-art performance analysis platform designed to provide
 
 ## 🏗️ System Architecture
 
-The AthletiQ pipeline is built on a modular architecture that separates data acquisition, core processing, and interactive visualization.
+AthletiQ uses a **Service-Oriented Architecture** designed for seamless integration into web backends. The core logic is decoupled from the UI, allowing the analysis to be triggered by any interface.
+
+### Project Structure
+- **`app/main.py`**: The entry point for the application.
+- **`app/core/pipeline.py`**: The **Master Trigger** class (`AthletiQPipeline`) that orchestrates the full AI analysis.
+- **`app/services/`**: Specialized engines for AI model management, video transcoding, and biomechanical analysis.
+- **`app/ui/`**: Modularized Gradio interface components.
 
 ```mermaid
 graph TD
@@ -38,56 +49,27 @@ graph TD
 
 ## 🔄 Processing Flow
 
-AthletiQ follows a rigorous sequence to ensure accuracy from pixel to performance metric.
-
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant G as Gradio UI
+    participant P as AthletiQPipeline
     participant S as SAM2
     participant B as Biomechanics
     participant SE as Sync Engine
 
-    U->>G: Upload Video
-    G->>G: Detect Shot (R3D-18)
-    U->>G: Click Batsman
-    G->>S: Propagate Mask
-    S-->>G: Isolated Video & Motion Range
-    G->>G: Autoclip to Active Motion
-    G->>B: Extract Pose (MediaPipe)
-    B-->>G: Joint Angle Time-Series
-    G->>SE: Identify Phases (Strike Point)
-    G->>SE: Segmented DTW Alignment
-    SE-->>G: Synced Mapping & IQR Score
-    G->>U: Display Comparison & Feedback
+    U->>P: Upload Video & Click Batsman
+    P->>S: Propagate Mask & Autoclip
+    S-->>P: Isolated Video
+    P->>B: Extract Pose (MediaPipe)
+    B-->>P: Joint Angle Time-Series
+    P->>SE: Segmented DTW Alignment
+    SE-->>P: Synced Mapping & Score
+    P->>U: Return Video, Plots, & Score
 ```
 
 ---
 
-## 🛠️ Technical Deep-Dive
-
-### 1. Shot Classification (`core/shot_classifier.py`)
-Identifies the shot type using a specialized R3D-18 model, automatically pulling the correct professional reference dataset.
-
-### 2. Player Segmentation & Autoclipping (`segment-anything-2`)
-Uses SAM2 to isolate the player. The system now includes **Autoclipping logic** that identifies the exact frames where the batsman is active, trimming the video to remove irrelevant pre-shot and post-shot footage.
-
-### 3. Biomechanics & Pose Extraction (`core/biomechanics/`)
-Extracts 33 joint landmarks and calculates relative angles for critical joints (elbows, shoulders, hips, knees). Includes a robust interpolation layer for consistent tracking.
-
-### 4. Sync Engine: Segmented DTW (`core/syncing/sync_engine.py`)
-A major upgrade from global alignment. The engine now:
-- **Identifies Phases**: Detects the "Strike" moment by analyzing the vertical Y-coordinate of the wrists.
-- **Segmented Alignment**: Performs separate DTW alignments for the backlift (Start-to-Strike) and the follow-through (Strike-to-End). This prevents temporal drift and ensures that the most critical moment of the shot is perfectly aligned.
-
----
-
 ## 🚀 Getting Started
-
-### Prerequisites
-- Python 3.10+
-- NVIDIA GPU with CUDA (Highly Recommended for SAM2)
-- ffmpeg
 
 ### Installation
 1. Clone the repository and install dependencies:
@@ -97,22 +79,33 @@ A major upgrade from global alignment. The engine now:
    pip install -r requirements.txt
    ```
 
-2. Download Model Weights to the `models/` directory.
-
-### Running the Dashboard
+### Running the Application
 ```bash
-python app/main_dashboard.py
+python app/main.py
+```
+
+### Backend Integration Example
+To trigger the analysis from a custom backend:
+```python
+from app.core.pipeline import pipeline
+
+results = pipeline.process(
+    video_path="practice.mp4", 
+    click_coords=(320, 240), 
+    shot_type="Cover Drive"
+)
 ```
 
 ---
 
-## 📊 Output & Analytics
+## 📜 Technical Breakdown
 
-- **Technical Score (%)**: Weighted score based on professional IQR alignment.
-- **Autoclipped Segmented Video**: Trimmmed, isolated video of the player.
-- **Comparison Video**: Phase-synced, side-by-side slow-motion video.
-- **Biomechanics JSON**: Raw joint angle time-series data.
-- **Sync Metadata (`sync_metadata.json`)**: Detailed breakdown of detected phases (start, strike, end) for both practice and reference.
+### 1. Model Lifecycle Management (`app/services/ai_models.py`)
+Manages SAM2, ShotClassifier, and PoseExtractor as singletons to ensure memory efficiency and prevent redundant model loading.
+
+### 2. Sync Engine: Segmented DTW (`core/syncing/sync_engine.py`)
+- **Phase Detection**: Detects the "Strike" moment via wrist trajectory.
+- **Piecewise Alignment**: Performs separate DTW alignments for distinct shot phases to ensure high-fidelity synchronization.
 
 ---
 
