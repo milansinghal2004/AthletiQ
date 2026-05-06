@@ -18,7 +18,7 @@ def handle_video_upload(video_path):
     # Auto-detect shot
     raw_shot, conf = pipeline.auto_detect_shot(video_path)
     predicted_shot = SHOT_LABEL_MAP.get(raw_shot, "None")
-    print(f"🏏 Auto-detected: {predicted_shot} ({conf*100:.1f}%)")
+    print(f"\033[92m[Shot] Auto-detected: {predicted_shot} ({conf*100:.1f}%)\033[0m")
 
     # Prepare for clicking
     playable_path = convert_to_mp4(video_path)

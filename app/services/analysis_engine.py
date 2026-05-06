@@ -11,9 +11,17 @@ def load_references():
         with open(REFERENCES_DB_PATH, "r") as f:
             refs = json.load(f)
             for key, val in refs.items():
-                base = os.path.basename(val["video_path"])
-                prefix = base.split("_reference.mp4")[0]
+                # Use original path to derive stats prefix if available
+                source_path = val.get("video_path_original", val["video_path"])
+                base = os.path.basename(source_path)
+                prefix = base.split("_reference")[0]
                 val["stats_path"] = f"assets/references/{prefix}_stats.json"
+                
+                # Double check the stats path exists
+                if not os.path.exists(os.path.join(PROJECT_ROOT, val["stats_path"])):
+                    # Fallback: Try shot name as prefix
+                    shot_prefix = key.lower().replace(" ", "_")
+                    val["stats_path"] = f"assets/references/{shot_prefix}_stats.json"
             return refs
     return {}
 
@@ -89,6 +97,12 @@ def run_sync_logic(practice_data, shot_type, practice_video, extractor, sync_eng
         reference_data = {"frames": [{"frame_idx": fs["frame_idx"], "angles": fs.get("mean_angles", {})} for fs in stats_data["frames"]]}
 
     alignment_path, p_phases, r_phases = sync_engine.sync_videos(practice_data, reference_data)
+    
+    # Colored Terminal Output for Phases
+    print(f"\033[92m\n--- Analysis for Shot Type: {shot_type} ---")
+    print(f"Practice Phases (Frames): {p_phases}")
+    print(f"Reference Phases (Frames): {r_phases}\n\033[0m")
+
     mapping = {p: r for p, r in alignment_path}
 
     # --- Scoring ---

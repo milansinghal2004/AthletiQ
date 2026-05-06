@@ -80,13 +80,18 @@ class AthletiQPipeline:
                 ret, frame = cap.read()
                 if not ret: break
                 if start_idx <= idx <= end_idx:
-                    isolated_frame = np.zeros_like(frame)
+                    # Visual enhancement: Keep background but darken it to highlight the player
+                    isolated_frame = (frame * 0.4).astype(np.uint8)
                     if idx in video_segments and 1 in video_segments[idx]:
                         mask = video_segments[idx][1]
                         if mask.ndim == 3: mask = mask[0]
                         if mask.shape[0] != frame.shape[0] or mask.shape[1] != frame.shape[1]:
                             mask = cv2.resize(mask.astype(np.uint8), (frame.shape[1], frame.shape[0]), interpolation=cv2.INTER_NEAREST)
+                        # Keep player at full brightness
                         isolated_frame[mask > 0] = frame[mask > 0]
+                        # Add a subtle neon green glow/outline to the player
+                        contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                        cv2.drawContours(isolated_frame, contours, -1, (136, 255, 0), 2) # Neon Green
                     writer.append_data(cv2.cvtColor(isolated_frame, cv2.COLOR_BGR2RGB))
                     frames_written += 1
                 idx += 1

@@ -10,24 +10,33 @@ def clear_temp(dir_name=TEMP_DIR):
     os.makedirs(dir_name, exist_ok=True)
 
 def convert_to_mp4(input_path):
-    """Transcodes videos to a browser-compatible MP4 format if needed."""
-    if not input_path or input_path.lower().endswith('.mp4'):
+    """Transcodes videos to a browser-compatible H.264 MP4 format."""
+    if not input_path:
         return input_path
     
     output_path = os.path.join(OUTPUTS_DIR, "playable_input.mp4")
     
     print(f"Transcoding {input_path} for browser compatibility...")
     try:
-        reader = imageio.get_reader(input_path)
-        fps = reader.get_meta_data().get('fps', 25.0)
+        cap = cv2.VideoCapture(input_path)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+        
+        # We'll use imageio's ffmpeg writer as it's more reliable for libx264 than OpenCV on Windows
+        import imageio
         writer = imageio.get_writer(output_path, fps=fps, codec='libx264', quality=7, pixelformat='yuv420p', macro_block_size=None)
-        for frame in reader:
-            writer.append_data(frame)
+        
+        while True:
+            ret, frame = cap.read()
+            if not ret: break
+            # OpenCV is BGR, imageio needs RGB
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            writer.append_data(frame_rgb)
+            
+        cap.release()
         writer.close()
-        reader.close()
         return output_path
     except Exception as e:
-        print(f"⚠️ Transcoding failed ({e}). Using original.")
+        print(f"Warning: Transcoding failed ({e}). Using original.")
         return input_path
 
 def extract_frames(video_path, max_dim=640):
