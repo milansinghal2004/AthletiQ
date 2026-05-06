@@ -13,11 +13,8 @@ assets/references/*.mp4
 assets/references/*.avi
 assets/references/angles/*.json
 
-# Large Model Binaries (Exclude to avoid repo bloat)
-models/sam2/checkpoints/*.pt
-models/mediapipe/*.task
-# models/shot_detection/*.pth
-# models/shot_detection/*.pth.zip
+# Large Model Binaries (Included for repository)
+# All models are now tracked
 
 # OS
 .DS_Store
