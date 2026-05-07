@@ -1,0 +1,41 @@
+/* =============================================
+   VARIABLES & RESET
+   ============================================= */
+:root {
+  --acid: #00ff88;
+  --acid2: #00e5ff;
+  --fire: #ff6b35;
+  --bg0: #020812;
+  --bg1: #040f1e;
+  --bg2: #071628;
+  --bg3: #0a1e38;
+  --glass: rgba(0,232,136,0.04);
+  --glass2: rgba(0,229,255,0.06);
+  --border: rgba(0,255,136,0.12);
+  --border2: rgba(0,229,255,0.14);
+  --text: #c8e6ff;
+  --text-dim: #4a6f8a;
+  --text-mid: #7bafc8;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  cursor: none !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg0);
+  color: var(--text);
+  font-family: 'Exo 2', sans-serif;
+  font-weight: 300;
+  overflow-x: hidden;
+  cursor: none !important;
+}

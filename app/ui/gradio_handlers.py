@@ -31,13 +31,41 @@ def handle_point_selection(img, evt: gr.SelectData):
     cv2.circle(points_img, evt.index, 7, (0, 255, 0), -1)
     return evt.index, points_img
 
-def run_full_analysis(video_path, click_coords, shot_type, progress=gr.Progress()):
+def run_full_analysis(video_path, click_coords, shot_type, user_id, progress=gr.Progress()):
     def pg_callback(curr, msg): progress(curr, desc=msg)
     
     result, error = pipeline.process(video_path, click_coords, shot_type, progress_callback=pg_callback)
     
     if error:
         return [None]*3 + [f"Error: {error}"] + [None]*6
+
+    # Save to user profile if user_id exists
+    if user_id:
+        print(f"\033[94m[Profile] Attempting to save results for User ID: {user_id}\033[0m")
+        try:
+            import requests
+            import re
+            
+            # Extract score from feedback string (e.g., "Score: 85.4%")
+            score_match = re.search(r"(\d+\.\d+)%", result["feedback"])
+            score = float(score_match.group(1)) if score_match else 0.0
+            
+            payload = {
+                "user_id": int(user_id) if str(user_id).isdigit() else user_id,
+                "shot_type": shot_type,
+                "score": score,
+                "video_path": video_path
+            }
+            
+            save_res = requests.post("http://127.0.0.1:3000/api/save-analysis", json=payload)
+            if save_res.status_code == 200:
+                print(f"\033[92m[Profile] Result successfully archived to database.\033[0m")
+            else:
+                print(f"\033[91m[Profile] Backend rejected save: {save_res.text}\033[0m")
+        except Exception as e:
+            print(f"\033[91m[Profile] Save failed: {str(e)}\033[0m")
+    else:
+        print("\033[93m[Profile] No User ID provided. Skipping history save.\033[0m")
 
     return [
         result["isolated_video"],
@@ -62,7 +90,7 @@ def bind_events(components):
 
     components["analyze_btn"].click(
         run_full_analysis, 
-        inputs=[components["video_input"], components["click_coord_state"], components["shot_select"]], 
+        inputs=[components["video_input"], components["click_coord_state"], components["shot_select"], components["user_id_state"]], 
         outputs=[
             components["out_isolated"], components["out_json"], components["out_comparison"], 
             components["out_score"], 

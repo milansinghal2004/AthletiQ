@@ -1,0 +1,62 @@
+@import './assets/css/variables.css';
+@import './assets/css/animations.css';
+@import './assets/css/layout.css';
+@import './assets/css/components.css';
+@import './assets/css/workflow.css';
+
+:root {
+  font-family: 'Rajdhani', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark;
+  color: #ffffff;
+  background-color: var(--bg0);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background-color: var(--bg0);
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Override some defaults for React integration */
+.workflow-card {
+  opacity: 1; /* Handle opacity via Framer Motion or simple entry */
+  animation: none; 
+}
+
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: center;
+  text-align: center;
+  padding: 120px 48px 80px;
+  position: relative; overflow: hidden;
+}
+
+/* Custom styles from index.html head */
+#fileInput { display: none; }
+.hero-eyebrow { justify-content: center; }
+.hero-desc { max-width: 560px; }
+.hero-actions { justify-content: center; }
+
+.workflow-section {
+  padding: 80px 48px 100px;
+  display: flex; flex-direction: column; align-items: center;
+}
+
+.analyse-panel-inner {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 32px; text-align: center;
+}

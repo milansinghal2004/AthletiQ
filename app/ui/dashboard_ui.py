@@ -44,6 +44,7 @@ def create_ui_layout():
     # Shared States
     clean_img_state = gr.State()
     click_coord_state = gr.State()
+    user_id_state = gr.State()
     
     return {
         "video_input": video_input,
@@ -61,5 +62,6 @@ def create_ui_layout():
         "plot_l_hip": plot_l_hip,
         "plot_r_hip": plot_r_hip,
         "clean_img_state": clean_img_state,
-        "click_coord_state": click_coord_state
+        "click_coord_state": click_coord_state,
+        "user_id_state": user_id_state
     }

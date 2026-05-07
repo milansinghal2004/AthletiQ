@@ -9,9 +9,9 @@ ENV/
 # Project Specific - Data & Outputs (Production Rule: No inputs/outputs on GitHub)
 outputs/
 temp_video_frames/
-assets/references/*.mp4
+# assets/references/*.mp4
 assets/references/*.avi
-assets/references/angles/*.json
+# assets/references/angles/*.json
 
 # Large Model Binaries (Included for repository)
 # All models are now tracked
@@ -19,3 +19,8 @@ assets/references/angles/*.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Frontend Dependencies & Temp
+node_modules/
+frontend/uploads/
+frontend-react/dist/

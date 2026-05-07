@@ -6,65 +6,98 @@ AthletiQ is a state-of-the-art performance analysis platform designed to provide
 
 ## 🌟 Key Features
 
+### 🧠 AI-Driven Analysis
 - **Automatic Shot Classification**: Utilizes a deep 3D Convolutional Neural Network (R3D-18) to automatically identify 10+ types of cricket shots.
 - **AI-Powered Player Segmentation**: Integrates **Meta's SAM2** to isolate the batsman, removing background interference.
-- **Automatic Motion Clipping (Autoclipping)**: Automatically trims video to the active motion range based on real-time tracking data, ensuring analysis focuses only on the shot.
-- **Segmented DTW Alignment**: An advanced version of Dynamic Time Warping that aligns videos in two distinct phases (Start-to-Strike and Strike-to-End) for pinpoint accuracy.
-- **Performance Pipeline Trigger**: A unified API-ready class that can be integrated into FastAPI, Flask, or Node.js backends.
-- **Full-Body Biometrics**: Now tracks **Hip, Elbow, Knee, and Shoulder** angles for comprehensive postural analysis.
-- **Interactive Plotly Trends**: Real-time interactive charts showing your technique vs. professional IQR corridors across the entire shot.
-- **Automatic Shot Classification**: Utilizes a deep 3D Convolutional Neural Network (R3D-18) to identify 10+ shot types.
-- **AI-Powered Player Segmentation**: Integrates **Meta's SAM2** to isolate the batsman.
-- **Segmented DTW Alignment**: Aligns videos across critical phases (Backlift to Strike, Strike to Follow-through).
-- **Objective Technical Scoring**: Evaluates performance by comparing joint angles against professional **Interquartile Range (IQR)** statistics.
-- **Side-by-Side Visualization**: Generates slow-motion, frame-synced comparison videos with phase-aligned rendering.
+- **Automatic Motion Clipping (Autoclipping)**: Automatically trims video to the active motion range based on real-time tracking data.
+- **Segmented DTW Alignment**: An advanced version of Dynamic Time Warping that aligns videos in two distinct phases (Start-to-Strike and Strike-to-End).
+- **Full-Body Biometrics**: Tracks **Hip, Elbow, Knee, and Shoulder** angles for comprehensive postural analysis.
+
+### 💻 Unified Web Ecosystem
+- **Dual-Frontend Architecture**: 
+  - **Classic Web**: Express.js server with a futuristic HTML/CSS/JS interface.
+  - **Modern Dashboard**: High-performance React + Vite interface with fluid animations.
+- **Persistent User Analytics**: Integrated **PostgreSQL (Neon)** for secure user authentication and historical performance tracking.
+- **Interactive Plotly Trends**: Real-time interactive charts showing your technique vs. professional IQR corridors.
+- **Objective Technical Scoring**: Evaluates performance by comparing joint angles against professional **Interquartile Range (IQR)** statistics using weighted joint analysis.
 
 ---
 
 ## 🏗️ System Architecture
 
-AthletiQ uses a **Service-Oriented Architecture** designed for seamless integration into web backends. The core logic is decoupled from the UI, allowing the analysis to be triggered by any interface.
+AthletiQ uses a **Service-Oriented Architecture** designed for seamless integration. The core logic is decoupled from the UI, allowing the analysis to be triggered by web, mobile, or desktop interfaces.
 
 ### Project Structure
-- **`app/main.py`**: The entry point for the application.
+- **`app/main.py`**: Entry point for the Gradio-based analysis dashboard.
+- **`frontend/`**: Express.js backend and classic web interface.
+- **`frontend-react/`**: Modern React-based performance dashboard.
 - **`app/core/pipeline.py`**: The **Master Trigger** class (`AthletiQPipeline`) that orchestrates the full AI analysis.
-- **`app/services/`**: Specialized engines for AI model management, video transcoding, and biomechanical analysis.
-- **`app/ui/`**: Modularized Gradio interface components.
+- **`app/services/`**: 
+  - `ai_models.py`: Singleton management for SAM2, R3D-18, and MediaPipe.
+  - `analysis_engine.py`: Core scoring, DTW alignment, and plot generation logic.
+  - `video_engine.py`: Transcoding and frame processing utilities.
+- **`core/`**: Low-level biomechanical logic and synchronization algorithms.
+- **`assets/references/`**: Curated library of professional cricket shot references and statistical profiles.
 
 ```mermaid
 graph TD
-    A[Video Input] --> B[Shot Classifier]
-    A --> C[SAM2 Segmentation]
-    B --> D[Reference Selection]
-    C --> E[Autoclipped Player Video]
-    E --> F[Pose Extractor]
-    F --> G[Biomechanical Angles]
-    G --> H[Sync Engine - Segmented DTW]
-    D --> H
-    H --> I[Scoring & Comparison]
-    I --> J[Final Dashboard Output]
+    subgraph "Frontend Layer"
+        FE_EXPRESS[Express Web App]
+        FE_REACT[React Dashboard]
+    end
+
+    subgraph "Backend API (Python)"
+        MAIN[main.py / Gradio]
+        PIPE[AthletiQPipeline]
+    end
+
+    subgraph "AI Core Engines"
+        SAM2[SAM2 Segmenter]
+        SC[Shot Classifier R3D-18]
+        PE[Pose Extractor MediaPipe]
+        SE[Sync Engine Segmented DTW]
+    end
+
+    subgraph "Database Layer"
+        PG[PostgreSQL - User History]
+    end
+
+    FE_EXPRESS -->|Trigger| MAIN
+    FE_REACT -->|Visuals| MAIN
+    MAIN --> PIPE
+    PIPE --> SAM2
+    PIPE --> SC
+    PIPE --> PE
+    PIPE --> SE
+    SE -->|Results| PG
+    MAIN -->|Dashboard| FE_EXPRESS
 ```
 
 ---
 
 ## 🔄 Processing Flow
 
+The following sequence outlines how AthletiQ processes a single practice video from upload to technical report generation.
+
 ```mermaid
 sequenceDiagram
-    participant U as User
-    participant P as AthletiQPipeline
-    participant S as SAM2
-    participant B as Biomechanics
-    participant SE as Sync Engine
+    participant User
+    participant Frontend
+    participant Backend
+    participant AI_Core
+    participant DB
 
-    U->>P: Upload Video & Click Batsman
-    P->>S: Propagate Mask & Autoclip
-    S-->>P: Isolated Video
-    P->>B: Extract Pose (MediaPipe)
-    B-->>P: Joint Angle Time-Series
-    P->>SE: Segmented DTW Alignment
-    SE-->>P: Synced Mapping & Score
-    P->>U: Return Video, Plots, & Score
+    User->>Frontend: Upload Video & Select Player
+    Frontend->>Backend: Initialize Analysis Pipeline
+    Backend->>AI_Core: SAM2: Segment & Autoclip Action
+    AI_Core-->>Backend: Isolated Action Video
+    Backend->>AI_Core: MediaPipe: Extract 33 Joint Keypoints
+    Backend->>AI_Core: R3D-18: Classify Shot Type (e.g. Pull)
+    Backend->>AI_Core: Segmented DTW: Align with Professional Ref
+    AI_Core->>AI_Core: Calculate Accuracy via IQR Comparison
+    AI_Core-->>Backend: Final Results (Plots, Video, Score)
+    Backend->>DB: Save Session Data to PostgreSQL
+    Backend-->>Frontend: Display Dynamic Feedback Report
 ```
 
 ---
@@ -78,34 +111,31 @@ sequenceDiagram
    cd AthletiQ
    pip install -r requirements.txt
    ```
+2. Set up the frontend:
+   ```bash
+   cd frontend
+   npm install
+   ```
 
 ### Running the Application
-```bash
-python app/main.py
-```
-
-### Backend Integration Example
-To trigger the analysis from a custom backend:
-```python
-from app.core.pipeline import pipeline
-
-results = pipeline.process(
-    video_path="practice.mp4", 
-    click_coords=(320, 240), 
-    shot_type="Cover Drive"
-)
-```
+1. **Launch the Web Interface (Express)**:
+   ```bash
+   cd frontend
+   node server.js
+   ```
+2. **Launch the Analysis Dashboard (Gradio)**:
+   ```bash
+   python app/main.py
+   ```
 
 ---
 
-## 📜 Technical Breakdown
+## 🛠️ Maintenance & Utilities
 
-### 1. Model Lifecycle Management (`app/services/ai_models.py`)
-Manages SAM2, ShotClassifier, and PoseExtractor as singletons to ensure memory efficiency and prevent redundant model loading.
-
-### 2. Sync Engine: Segmented DTW (`core/syncing/sync_engine.py`)
-- **Phase Detection**: Detects the "Strike" moment via wrist trajectory.
-- **Piecewise Alignment**: Performs separate DTW alignments for distinct shot phases to ensure high-fidelity synchronization.
+AthletiQ includes several utility scripts for managing the reference library:
+- **`app/scripts/clean_references.py`**: Scans the reference library and removes unused files to optimize storage.
+- **`generate_shot_references.py`**: Automates the creation of new reference profiles from raw professional footage.
+- **`convert_references.py`**: Ensures all video references are in the optimal format for cross-browser playback.
 
 ---
 

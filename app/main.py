@@ -33,15 +33,24 @@ def start_app():
         # 4. Handle URL parameters (Auto-load video from frontend)
         def on_load(request: gr.Request):
             video_path = request.query_params.get("video")
+            user_id = request.query_params.get("user_id")
+            
+            f1, f2, v, s = [None] * 4
             if video_path and os.path.exists(video_path):
                 print(f"Auto-loading video: {video_path}")
                 from app.ui.gradio_handlers import handle_video_upload
                 # Get all pre-processed data
                 f1, f2, v, s = handle_video_upload(video_path)
-                return f1, f2, v, s
-            return [None] * 4
+            
+            return f1, f2, v, s, user_id
 
-        demo.load(on_load, None, [components["first_frame_display"], components["clean_img_state"], components["video_input"], components["shot_select"]])
+        demo.load(on_load, None, [
+            components["first_frame_display"], 
+            components["clean_img_state"], 
+            components["video_input"], 
+            components["shot_select"],
+            components["user_id_state"]
+        ])
 
     # 5. Launch
     print("AthletiQ is ready.")
@@ -52,8 +61,7 @@ def start_app():
         css=get_athletiq_css(),
         allowed_paths=[
             os.path.join(PROJECT_ROOT, "outputs"), 
-            os.path.join(PROJECT_ROOT, "..", "frontend", "uploads"),
-            "E:\\PYTHON\\AthletiQ\\frontend\\uploads"
+            os.path.join(PROJECT_ROOT, "frontend", "uploads"),
         ]
     )
 
