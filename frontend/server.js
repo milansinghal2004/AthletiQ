@@ -164,9 +164,16 @@ app.post('/run-analysis', upload.single('video'), async (req, res) => {
     let history = [];
     if (userId) {
       try {
-        await pool.query('INSERT INTO analysis_history (user_id, entry_text) VALUES ($1, $2)', [userId, entryText]);
+        const parsedShot = result ? (result.shot_type || shot_type) : shot_type;
+        const scoreMatch = result && result.summary ? result.summary.match(/(?:Overall\s+)?Score:\s*(\d+(?:\.\d+)?)/i) : null;
+        const parsedScore = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
+
+        await pool.query(
+          'INSERT INTO analysis_history (user_id, entry_text, shot_type, accuracy_score) VALUES ($1, $2, $3, $4)',
+          [userId, entryText, parsedShot, parsedScore]
+        );
         const historyResult = await pool.query(
-          'SELECT id, entry_text, created_at FROM analysis_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20',
+          'SELECT id, entry_text, shot_type, accuracy_score, created_at FROM analysis_history WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20',
           [userId]
         );
         history = historyResult.rows;
@@ -312,7 +319,7 @@ app.get('/api/history/:user_id', async (req, res) => {
 
   try {
     const result = await pool.query(
-      'SELECT id, entry_text, created_at FROM analysis_history WHERE user_id = $1 ORDER BY created_at DESC',
+      'SELECT id, entry_text, shot_type, accuracy_score, created_at FROM analysis_history WHERE user_id = $1 ORDER BY created_at DESC',
       [userId]
     );
     return res.json({ success: true, history: result.rows });

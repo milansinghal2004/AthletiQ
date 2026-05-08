@@ -11,25 +11,61 @@
 <link rel="stylesheet" href="css/layout.css">
 <link rel="stylesheet" href="css/components.css">
 <style>
+/* ── GLOBAL THEMED SCROLLBARS ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+::-webkit-scrollbar-thumb { background: rgba(0,255,136,0.2); border-radius: 10px; transition: background 0.3s; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0,255,136,0.5); }
+* { scrollbar-width: thin; scrollbar-color: rgba(0,255,136,0.2) rgba(0,0,0,0.2); }
+
 /* ── WORKFLOW OVERHAUL STYLES ── */
 #fileInput { display: none; }
+body { cursor: none !important; }
+
+/* ── CUSTOM CURSOR ── */
+#cursor {
+  position: fixed; width: 10px; height: 10px; background: #00ff88; border-radius: 50%;
+  pointer-events: none; z-index: 11000; transform: translate(-50%, -50%);
+  transition: opacity .3s;
+  box-shadow: 0 0 10px #00ff88, 0 0 0 1.5px rgba(0,0,0,1); /* High contrast outline */
+}
+#cursorRing {
+  position: fixed; width: 40px; height: 40px; border: 1.5px solid rgba(0, 255, 136, 0.6);
+  border-radius: 50%; pointer-events: none; z-index: 10999;
+  transform: translate(-50%, -50%);
+  transition: left 0.15s ease-out, top 0.15s ease-out, opacity 0.3s;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,0,0,0.4); /* Contrast strokes */
+}
+#batCursor {
+  position: fixed; pointer-events: none; z-index: 11001;
+  font-size: 32px; transform: translate(-10%, -10%);
+  opacity: 0; transition: opacity 0.3s;
+}
+.cursor-toggle {
+  position: fixed; bottom: 24px; right: 24px;
+  background: var(--bg2); border: 1px solid var(--border);
+  color: var(--text-dim); padding: 8px 16px;
+  font-family: 'Share Tech Mono', monospace; font-size: 10px;
+  cursor: pointer; z-index: 11002;
+  transition: all 0.3s;
+}
+.cursor-toggle:hover { color: var(--acid); border-color: var(--acid); }
 
 .hero {
   min-height: 100vh;
   display: flex; flex-direction: column;
-  justify-content: center; align-items: center;
-  text-align: center;
+  justify-content: center; align-items: flex-start;
+  text-align: left;
   padding: 120px 48px 80px;
   position: relative; overflow: hidden;
 }
-.hero-eyebrow { justify-content: center; }
 .hero-desc { max-width: 560px; }
-.hero-actions { justify-content: center; }
 
 /* WORKFLOW SECTION */
 .workflow-section {
   padding: 80px 48px 100px;
-  display: flex; flex-direction: column; align-items: center;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
 }
 
 /* STEP TRACKER */
@@ -283,6 +319,363 @@
 /* INFO SECTIONS */
 .info-sections { padding: 0 48px 80px; }
 .section-slim { padding: 60px 0; }
+
+/* ── PROFILE DROPDOWN ── */
+.profile-dropdown {
+  display: none;
+  position: fixed;
+  top: 90px;
+  right: 48px;
+  width: 760px;
+  height: 580px;
+  min-width: 400px;
+  min-height: 300px;
+  background: rgba(2, 8, 18, 0.95);
+  backdrop-filter: blur(30px);
+  border: 1px solid var(--border);
+  z-index: 10001;
+  padding: 0;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+  animation: dropdownSlide 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  overflow: hidden;
+}
+/* Custom Bottom-Left Resizer */
+.resizer-bl {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nesw-resize;
+  z-index: 10002;
+  background: linear-gradient(45deg, var(--acid) 20%, transparent 20%, transparent 30%, var(--acid) 30%, var(--acid) 40%, transparent 40%, transparent 50%, var(--acid) 50%);
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+.resizer-bl:hover { opacity: 1; }
+
+/* Loading State */
+.btn-loading {
+  pointer-events: none;
+  opacity: 0.8;
+  position: relative;
+  color: transparent !important;
+}
+.btn-loading::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  top: 50%;
+  left: 50%;
+  margin: -8px 0 0 -8px;
+  border: 2px solid rgba(0,0,0,0.1);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.profile-dropdown.active {
+  display: flex;
+  flex-direction: column;
+}
+.page-blur-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(8px);
+  z-index: 10000;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.page-blur-overlay.active {
+  display: block;
+  opacity: 1;
+}
+@keyframes dropdownSlide {
+  0% { transform: translateY(-20px) scale(0.98); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.dropdown-header {
+  padding: 32px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dropdown-body {
+  padding: 32px;
+  display: grid;
+  grid-template-columns: 1fr 1.2fr; /* Two column landscape layout */
+  gap: 32px;
+  flex: 1; /* Take up remaining space in resized box */
+  overflow: hidden;
+}
+.dropdown-footer {
+  padding: 20px 32px;
+  border-top: 1px solid var(--border);
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.mini-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+.mini-stat-box {
+  background: rgba(0,255,136,0.03);
+  border: 1px solid var(--border);
+  padding: 20px;
+  text-align: left;
+  border-left: 3px solid var(--acid);
+}
+.mini-stat-val {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 28px;
+  color: #fff;
+  line-height: 1;
+}
+.mini-stat-lbl {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 9px;
+  color: var(--acid);
+  margin-top: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ── LOGIN REFINEMENT ── */
+.login-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 8, 18, 0.85);
+  backdrop-filter: blur(12px);
+  z-index: 10000;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.login-modal-overlay.visible {
+  display: flex;
+  opacity: 1;
+}
+.login-modal-overlay.visible .login-card {
+  animation: modalPopIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+.login-modal-overlay.hiding {
+  opacity: 0;
+  pointer-events: none;
+}
+.login-modal-overlay.hiding .login-card {
+  animation: modalPopOut 0.3s ease forwards;
+}
+@keyframes modalPopIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes modalPopOut {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.85); opacity: 0; }
+}
+.close-modal {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0 8px;
+  transition: color 0.2s;
+}
+.close-modal:hover { color: var(--fire); }
+.login-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  padding: 0;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+.login-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0,0,0,0.2);
+}
+.login-tab-btn {
+  flex: 1;
+  padding: 16px;
+  background: transparent;
+  border: none;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+.login-tab-btn.active {
+  color: var(--acid);
+  background: rgba(0,255,136,0.05);
+}
+.login-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--acid);
+  box-shadow: 0 0 10px var(--acid);
+}
+.login-form-body {
+  padding: 32px;
+  display: grid;
+  gap: 20px;
+}
+.input-group {
+  display: grid;
+  gap: 8px;
+}
+.input-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.login-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: var(--bg1);
+  border: 1px solid var(--border);
+  color: #fff;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 15px;
+  outline: none;
+  transition: all 0.3s;
+}
+.login-input:focus {
+  border-color: var(--acid);
+  box-shadow: 0 0 15px rgba(0,255,136,0.15);
+  background: rgba(0,255,136,0.02);
+}
+.login-status-msg {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 10px;
+  color: var(--acid);
+  min-height: 18px;
+  text-align: center;
+}
+
+/* ── PROFILE DASHBOARD ── */
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.profile-stat-box {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  padding: 16px;
+  text-align: left;
+}
+.ps-val {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--acid);
+  line-height: 1;
+}
+
+/* ── PIPELINE SECTION OVERHAUL ── */
+.pipeline-track {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 30px;
+  margin-top: 40px;
+}
+.pipe-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.6;
+  transition: all 0.3s;
+}
+.pipe-step:hover { opacity: 1; transform: translateY(-5px); }
+.pipe-step:hover .pipe-label { color: var(--acid); text-shadow: 0 0 10px rgba(0, 255, 136, 0.4); }
+.pipe-node {
+  width: 60px;
+  height: 60px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 12px;
+  position: relative;
+  clip-path: polygon(15% 0%, 100% 0%, 100% 85%, 85% 100%, 0% 100%, 0% 15%);
+}
+.pipe-icon { font-size: 18px; margin-bottom: 2px; }
+.pipe-num {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px;
+  color: var(--acid);
+  position: absolute;
+  top: 2px;
+  right: 6px;
+}
+.pipe-label {
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+  color: var(--acid);
+  line-height: 1;
+}
+.ps-lbl {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 8px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-top: 4px;
+}
+.history-item-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(0,0,0,0.2);
+  border: 1px solid rgba(255,255,255,0.05);
+  transition: border-color 0.3s;
+}
+.history-item-card:hover {
+  border-color: rgba(0,255,136,0.2);
+}
+.history-score-badge {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,255,136,0.08);
+  border: 1px solid rgba(0,255,136,0.2);
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700; font-size: 14px; color: var(--acid);
+}
 </style>
 </head>
 <body>
@@ -306,13 +699,13 @@
       <a href="#workflow">Upload &amp; Analyse</a>
       <a href="#pipeline">Pipeline</a>
       <a href="#features">Features</a>
-      <a href="#timeline">Timeline</a>
     </div>
-    <div class="nav-status" style="display:flex;align-items:center;gap:12px;">
+    <div class="nav-status" style="display:flex;align-items:center;gap:16px;">
       <div style="display:flex;align-items:center;gap:8px;">
         <div class="status-dot"></div>
-        <span id="systemStatus">SYSTEM ONLINE</span>
+        <span id="systemStatus" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;">SYSTEM ONLINE</span>
       </div>
+      <button id="accountBtn" class="btn-secondary" style="padding: 8px 20px; font-size: 10px; letter-spacing: 2px; border-radius: 0; clip-path: polygon(6px 0%, 100% 0%, calc(100% - 6px) 100%, 0% 100%);">LOGIN</button>
       <button id="userBadge" style="display:none;min-width:36px;min-height:36px;border-radius:50%;border:1px solid rgba(0,255,136,0.35);background:rgba(0,255,136,0.08);color:#fff;font-family:'Share Tech Mono',monospace;font-size:14px;cursor:pointer;">A</button>
     </div>
   </nav>
@@ -389,8 +782,8 @@
 
   <!-- STATS STRIP -->
   <div class="stats-strip">
-    <div class="stat-item"><div class="stat-val" data-target="33">0</div><div class="stat-label">Skeleton Keypoints</div></div>
-    <div class="stat-item"><div class="stat-val" data-target="8">0</div><div class="stat-label">Shot Types Detected</div></div>
+    <div class="stat-item"><div class="stat-val" data-target="12">0</div><div class="stat-label">Skeleton Keypoints</div></div>
+    <div class="stat-item"><div class="stat-val" data-target="10">0</div><div class="stat-label">Shot Profiles</div></div>
     <div class="stat-item"><div class="stat-val" data-target="96" data-suffix="%">0</div><div class="stat-label">Detection Accuracy</div></div>
     <div class="stat-item"><div class="stat-val" data-target="30">0</div><div class="stat-label">FPS Processing</div></div>
   </div>
@@ -398,62 +791,7 @@
   <!-- ═══════════════════════ WORKFLOW ═══════════════════════ -->
   <section class="workflow-section" id="workflow">
 
-    <div class="workflow-card" style="margin-bottom:32px;padding:24px;background:var(--bg2);border:1px solid var(--border);">
-      <div class="wf-header">
-        <div class="wf-header-title">// USER LOGIN & PROFILE</div>
-        <div class="wf-dots">
-          <div class="wf-dot" style="background:#ff5f57"></div>
-          <div class="wf-dot" style="background:#febc2e"></div>
-          <div class="wf-dot" style="background:#28c840"></div>
-        </div>
-      </div>
-      <div style="display:grid;gap:22px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
-          <div style="display:flex;gap:12px;margin-bottom:14px;">
-          <button id="showLoginTab" class="btn-ghost" style="flex:1;">Login</button>
-          <button id="showRegisterTab" class="btn-ghost" style="flex:1;">Register</button>
-        </div>
-        <div id="loginForm" style="display:grid;gap:10px;">
-          <div style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;">Login</div>
-          <input id="loginUsername" type="text" placeholder="Username" style="width:100%;padding:14px;border:1px solid var(--border);background:var(--bg1);color:#fff;outline:none;" />
-          <input id="loginPassword" type="password" placeholder="Password" style="width:100%;padding:14px;border:1px solid var(--border);background:var(--bg1);color:#fff;outline:none;" />
-          <button class="btn-primary" id="loginBtn" style="width:100%;">LOGIN</button>
-          <button id="loginConfirmBtn" class="btn-ghost" style="display:none;width:100%;">✔ Login successful</button>
-          <div id="loginStatus" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--acid);min-height:18px;"></div>
-        </div>
-        <div id="registerForm" style="display:none;grid-gap:10px;">
-          <div style="font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;">Register</div>
-          <input id="registerUsername" type="text" placeholder="Username" style="width:100%;padding:14px;border:1px solid var(--border);background:var(--bg1);color:#fff;outline:none;" />
-          <input id="registerPassword" type="password" placeholder="Password" style="width:100%;padding:14px;border:1px solid var(--border);background:var(--bg1);color:#fff;outline:none;" />
-          <input id="registerEmail" type="email" placeholder="Email" style="width:100%;padding:14px;border:1px solid var(--border);background:var(--bg1);color:#fff;outline:none;" />
-          <button class="btn-primary" id="registerBtn" style="width:100%;">REGISTER</button>
-          <button id="registerConfirmBtn" class="btn-ghost" style="display:none;width:100%;">✔ Registration successful</button>
-          <div id="registerStatus" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--acid);min-height:18px;"></div>
-        </div>
-        </div>
-        <div id="profilePanel" style="display:none;padding:18px;border:1px solid rgba(0,255,136,0.08);background:rgba(0,255,136,0.04);">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <div style="font-family:'Rajdhani',sans-serif;font-size:16px;font-weight:700;color:#fff;">Profile</div>
-            <div style="display:flex;gap:12px;flex-wrap:wrap;">
-              <button class="btn-ghost" id="loadProfileBtn">Load History</button>
-              <button class="btn-ghost" id="logoutBtn">Logout</button>
-            </div>
-          </div>
-          <div id="profileInfo" style="margin-top:14px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);white-space:pre-wrap;">Not logged in</div>
-          <div id="adminPanel" style="display:none;margin-top:18px;border-top:1px solid rgba(0,255,136,0.08);padding-top:16px;">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-              <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--acid);">Admin console</div>
-              <button class="btn-ghost" id="loadUsersBtn">Load Users</button>
-            </div>
-            <div id="adminUsersTable" style="margin-top:12px;display:grid;gap:10px;"></div>
-          </div>
-          <div id="historyTable" style="margin-top:18px;font-family:'Share Tech Mono',monospace;font-size:11px;color:#fff;display:grid;gap:8px;"></div>
-        </div>
-      </div>
-    </div>
-
-    <div id="gatedContent">
-      <div class="steps-tracker">
+    <div class="steps-tracker">
       <div class="step-node active" id="stepNode1">
         <div class="step-circle active" id="stepCircle1">01</div>
         <div class="step-label">Upload</div>
@@ -469,6 +807,8 @@
         <div class="step-label">Results</div>
       </div>
     </div>
+
+    <div id="gatedContent" style="width: 100%; max-width: 860px;">
 
     <div class="workflow-card">
       <div class="wf-header">
@@ -625,19 +965,19 @@
     <section class="section-slim" id="pipeline">
       <div class="section-tag">System Architecture</div>
       <h2 class="section-title reveal">10-Stage <em>Analysis</em> Pipeline</h2>
-      <div class="pipeline reveal">
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🎥</span><span class="pipe-num">01</span></div><div class="pipe-label">Video Input</div></div>
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🦴</span><span class="pipe-num">02</span></div><div class="pipe-label">Pose Estimation</div></div>
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">✅</span><span class="pipe-num">03</span></div><div class="pipe-label">Validation</div></div>
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🏏</span><span class="pipe-num">04</span></div><div class="pipe-label">Shot Detection</div></div>
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">✂️</span><span class="pipe-num">05</span></div><div class="pipe-label">Clip Extraction</div></div>
+      <div class="pipeline-track reveal">
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🎞️</span><span class="pipe-num">01</span></div><div class="pipe-label">Video Ingest</div></div>
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🎯</span><span class="pipe-num">02</span></div><div class="pipe-label">SAM2 Tracking</div></div>
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🧤</span><span class="pipe-num">03</span></div><div class="pipe-label">Neural Isolation</div></div>
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🦴</span><span class="pipe-num">04</span></div><div class="pipe-label">Pose Extraction</div></div>
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🌊</span><span class="pipe-num">05</span></div><div class="pipe-label">Motion Smoothing</div></div>
       </div>
-      <div class="pipeline2 reveal" style="transition-delay:.2s">
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🔄</span><span class="pipe-num">06</span></div><div class="pipe-label">Synchronization</div></div>
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">📊</span><span class="pipe-num">07</span></div><div class="pipe-label">DTW Comparison</div></div>
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🎯</span><span class="pipe-num">08</span></div><div class="pipe-label">Performance Score</div></div>
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🤖</span><span class="pipe-num">09</span></div><div class="pipe-label">AI Feedback</div></div>
-        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">📱</span><span class="pipe-num">10</span></div><div class="pipe-label">Visualization</div></div>
+      <div class="pipeline-track reveal" style="margin-top:20px; transition-delay:.2s">
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">🏏</span><span class="pipe-num">06</span></div><div class="pipe-label">Shot Inference</div></div>
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-num">07</span><span class="pipe-icon">🔄</span></div><div class="pipe-label">Segmented DTW</div></div>
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-num">08</span><span class="pipe-icon">📊</span></div><div class="pipe-label">Joint Analytics</div></div>
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-num">09</span><span class="pipe-icon">🤖</span></div><div class="pipe-label">Generative AI</div></div>
+        <div class="pipe-step"><div class="pipe-node"><span class="pipe-icon">☁️</span><span class="pipe-num">10</span></div><div class="pipe-label">Cloud Archival</div></div>
       </div>
     </section>
 
@@ -645,25 +985,71 @@
       <div class="section-tag">Core Capabilities</div>
       <h2 class="section-title reveal">What <em>AthletiQ</em> Does</h2>
       <div class="features-grid reveal">
-        <div class="feat-card"><span class="feat-icon">🦴</span><div class="feat-title">Pose Estimation</div><div class="feat-desc">Extracts 33 skeletal keypoints per frame using MediaPipe Pose, with confidence scoring and temporal smoothing.</div><span class="feat-tag">MediaPipe · Real-time</span></div>
-        <div class="feat-card feat-card-accent"><span class="feat-icon">🏏</span><div class="feat-title">Shot Detection</div><div class="feat-desc">Classifies batting shots — drive, pull, sweep, cut and more — from skeletal trajectory and joint velocity signatures.</div><span class="feat-tag">ML Classification · 8 Shots</span></div>
-        <div class="feat-card feat-card-fire"><span class="feat-icon">📐</span><div class="feat-title">DTW Analysis</div><div class="feat-desc">Dynamic Time Warping aligns your motion with expert reference clips, handling tempo variation for true similarity scores.</div><span class="feat-tag">DTW · Joint-level</span></div>
-        <div class="feat-card feat-card-accent"><span class="feat-icon">⚡</span><div class="feat-title">Clip Extraction</div><div class="feat-desc">Locates batting action windows within full footage, isolating each stroke for frame-accurate analysis automatically.</div><span class="feat-tag">OpenCV · Auto-trim</span></div>
-        <div class="feat-card"><span class="feat-icon">🎯</span><div class="feat-title">Performance Scoring</div><div class="feat-desc">Per-joint and aggregate technique scores reveal exactly which body segments deviate from optimal form.</div><span class="feat-tag">Quantitative · Per-joint</span></div>
-        <div class="feat-card feat-card-fire"><span class="feat-icon">🤖</span><div class="feat-title">AI Feedback</div><div class="feat-desc">Converts numerical deviations into natural language coaching cues — specific, actionable corrections per joint.</div><span class="feat-tag">LLM-powered · Actionable</span></div>
+        <div class="feat-card"><span class="feat-icon">🦴</span><div class="feat-title">Pose Estimation</div><div class="feat-desc">Extracts 12 critical skeletal keypoints per frame using MediaPipe, optimized for cricket biomechanical accuracy.</div><span class="feat-tag">MediaPipe · 12 Keypoints</span></div>
+        <div class="feat-card feat-card-accent"><span class="feat-icon">🏏</span><div class="feat-title">Neural Classification</div><div class="feat-desc">R3D-18 CNN architecture identifies 10+ distinct batting shots from trajectory and velocity signatures.</div><span class="feat-tag">R3D-18 CNN · 10+ Shots</span></div>
+        <div class="feat-card feat-card-fire"><span class="feat-icon">📐</span><div class="feat-title">Segmented DTW</div><div class="feat-desc">Advanced Dynamic Time Warping aligns your motion phases with expert reference clips for precise form comparison.</div><span class="feat-tag">DTW · Phase-accurate</span></div>
+        <div class="feat-card feat-card-accent"><span class="feat-icon">🎯</span><div class="feat-title">SAM2 Player Tracking</div><div class="feat-desc">Leverages Meta SAM2 for real-time player segmentation, enabling neural background isolation and highlighting.</div><span class="feat-tag">Meta SAM2 · Neural Tracking</span></div>
+        <div class="feat-card"><span class="feat-icon">📊</span><div class="feat-title">Performance Scoring</div><div class="feat-desc">Quantitative technique scores reveal exactly which body segments deviate from optimal professional form.</div><span class="feat-tag">Quantitative · Per-joint</span></div>
+        <div class="feat-card feat-card-fire"><span class="feat-icon">🤖</span><div class="feat-title">Generative AI</div><div class="feat-desc">LLM-powered engine converts biomechanical deviations into natural language coaching cues and corrections.</div><span class="feat-tag">LLM · Actionable Insights</span></div>
       </div>
     </section>
 
-    <section class="section-slim" id="timeline">
-      <div class="section-tag">Development Roadmap</div>
-      <h2 class="section-title reveal">Project <em>Timeline</em></h2>
-      <div class="phase-grid reveal">
-        <div class="phase-card"><div class="phase-num">01</div><span class="phase-tag">Phase I</span><div class="phase-title">Pose Detection</div><div class="phase-desc">MediaPipe integration, keypoint extraction, skeleton smoothing and frame-level validation pipeline.</div><div class="phase-date">Mar 11 – Mar 21</div></div>
-        <div class="phase-card"><div class="phase-num">02</div><span class="phase-tag" style="color:var(--acid2);border-color:rgba(0,229,255,.2)">Phase II</span><div class="phase-title">Shot Detection</div><div class="phase-desc">Shot classifier training, clip extraction logic, action window segmentation from full footage.</div><div class="phase-date">Mar 21 – Apr 01</div></div>
-        <div class="phase-card"><div class="phase-num">03</div><span class="phase-tag" style="color:var(--fire);border-color:rgba(255,107,53,.2)">Phase III</span><div class="phase-title">Movement Analysis</div><div class="phase-desc">DTW implementation, reference motion library, joint scoring system and AI feedback generation.</div><div class="phase-date">Apr 01 – Apr 15</div></div>
-        <div class="phase-card"><div class="phase-num">04</div><span class="phase-tag" style="color:var(--acid2);border-color:rgba(0,229,255,.2)">Phase IV</span><div class="phase-title">UI Integration</div><div class="phase-desc">Dashboard build, backend API connection, visualization components and full system integration testing.</div><div class="phase-date">Apr 15 – Apr 25</div></div>
+    <!-- BACKGROUND BLUR OVERLAY -->
+    <div id="pageBlurOverlay" class="page-blur-overlay"></div>
+
+    <!-- USER PROFILE DROPDOWN (Landscape) -->
+    <div id="profileDropdown" class="profile-dropdown">
+      <div class="resizer-bl" id="profileResizer"></div>
+      <div class="dropdown-header">
+        <div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--acid);letter-spacing:3px;margin-bottom:4px;">ACCOUNT // SECURE ACCESS</div>
+          <div style="font-family:'Rajdhani',sans-serif;font-size:24px;font-weight:700;color:#fff;text-transform:uppercase;letter-spacing:1px;" id="dropdownUser">User Profile</div>
+          <div id="dropdownEmail" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:4px; opacity:0.6;">—</div>
+        </div>
+        <button class="btn-ghost" id="logoutBtn" style="padding: 10px 24px; font-size:10px; border-color:var(--fire); color:var(--fire);">LOGOUT</button>
       </div>
-    </section>
+
+      <div class="dropdown-body">
+        <!-- Column 1: Stats -->
+        <div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:2px;margin-bottom:20px;">ANALYTICS</div>
+          <div class="mini-stat-grid">
+            <div class="mini-stat-box">
+              <div class="mini-stat-val" id="statAvgScore">0</div>
+              <div class="mini-stat-lbl">AVG ACCURACY %</div>
+            </div>
+            <div class="mini-stat-box" style="background:rgba(0,229,255,0.03); border-color:rgba(0,229,255,0.2); border-left-color:var(--acid2);">
+              <div class="mini-stat-val" id="statTotalShots" style="color:#fff;">0</div>
+              <div class="mini-stat-lbl" style="color:var(--acid2);">TOTAL ANALYSES</div>
+            </div>
+          </div>
+          <div style="margin-top:24px; padding:20px; background:rgba(255,107,53,0.03); border:1px solid rgba(255,107,53,0.1); border-left:3px solid var(--fire);">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--fire);margin-bottom:4px;">PEAK PERFORMANCE</div>
+            <div id="statBestShot" style="font-family:'Share Tech Mono',monospace;font-size:14px;color:#fff;font-weight:bold;">—</div>
+          </div>
+        </div>
+
+        <!-- Column 2: History -->
+        <div style="display:flex; flex-direction:column;">
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+            <span>RECENT ACTIVITY</span>
+            <button id="loadProfileBtn" style="background:none; border:none; color:var(--acid2); font-family:inherit; font-size:9px; cursor:pointer; letter-spacing:1px;">[ SYNC CLOUD ]</button>
+          </div>
+          
+          <div id="historyTable" style="display:grid;gap:10px; flex:1; overflow-y:auto; padding-right:8px; max-height:300px;">
+            <!-- History cards -->
+          </div>
+
+          <div id="adminPanel" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--fire);letter-spacing:1px;">ADMIN CONSOLE</div>
+              <button class="btn-ghost" id="loadUsersBtn" style="padding:2px 8px;font-size:8px;">LIST USERS</button>
+            </div>
+            <div id="adminUsersTable" style="display:grid;gap:8px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
 
   </div>
 
@@ -676,6 +1062,65 @@
   </footer>
 
 </div>
+
+<!-- LOGIN MODAL -->
+<div id="loginModal" class="login-modal-overlay">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="wf-header">
+        <div class="wf-header-title">// AUTHENTICATION GATEWAY</div>
+        <div class="wf-dots" style="display: flex; align-items: center; gap: 12px;">
+          <button class="close-modal" id="closeLoginModal">&times;</button>
+          <div class="wf-dot" style="background:#ff5f57"></div>
+          <div class="wf-dot" style="background:#febc2e"></div>
+          <div class="wf-dot" style="background:#28c840"></div>
+        </div>
+      </div>
+
+      <div class="login-tabs">
+        <button id="showLoginTab" class="login-tab-btn active">Login</button>
+        <button id="showRegisterTab" class="login-tab-btn">Register</button>
+      </div>
+
+      <div class="login-form-body">
+        <!-- LOGIN FORM -->
+        <div id="loginForm" style="display:grid;gap:16px;">
+          <div class="input-group">
+            <div class="input-label">Username</div>
+            <input id="loginUsername" type="text" placeholder="Enter identity..." class="login-input" />
+          </div>
+          <div class="input-group">
+            <div class="input-label">Password</div>
+            <input id="loginPassword" type="password" placeholder="••••••••" class="login-input" />
+          </div>
+          <button class="btn-primary" id="loginBtn" style="width:100%; margin-top: 8px;">ACCESS SYSTEM</button>
+          <button id="loginConfirmBtn" class="btn-ghost" style="display:none;width:100%;">✔ Login successful</button>
+          <div id="loginStatus" class="login-status-msg"></div>
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div id="registerForm" style="display:none;grid-gap:16px;">
+          <div class="input-group">
+            <div class="input-label">Username</div>
+            <input id="registerUsername" type="text" placeholder="Choose identity..." class="login-input" />
+          </div>
+          <div class="input-group">
+            <div class="input-label">Email Address</div>
+            <input id="registerEmail" type="email" placeholder="email@athletiq.local" class="login-input" />
+          </div>
+          <div class="input-group">
+            <div class="input-label">Password</div>
+            <input id="registerPassword" type="password" placeholder="••••••••" class="login-input" />
+          </div>
+          <button class="btn-primary" id="registerBtn" style="width:100%; margin-top: 8px;">CREATE PROFILE</button>
+          <button id="registerConfirmBtn" class="btn-ghost" style="display:none;width:100%;">✔ Registration successful</button>
+          <div id="registerStatus" class="login-status-msg"></div>
+        </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
 
 <script>
 /* ════════ CURSOR ════════ */
@@ -726,7 +1171,7 @@
       width:12px;height:12px;border-radius:50%;
       border:2px solid var(--acid);
       transform:translate(-50%,-50%) scale(1);
-      opacity:1;pointer-events:none;z-index:9990;
+      border-radius: 50%; pointer-events: none; z-index: 11000;
       transition:transform .5s ease-out,opacity .5s ease-out;
     `;
     document.body.appendChild(ring);
@@ -857,6 +1302,9 @@
       spawnHit(e.clientX, e.clientY);
     }
   });
+
+  // Ensure body has cursor:none ONLY if custom cursor elements exist
+  document.body.style.cursor = 'none';
 })();
 
 /* ════════ REVEAL + COUNTERS + SCROLL ════════ */
@@ -913,6 +1361,26 @@
   }
 
   const appState = { userId: null, username: null, isAdmin: false };
+  let pendingAction = null;
+
+  function showLoginModal(onSuccess) {
+    pendingAction = onSuccess;
+    const modal = document.getElementById('loginModal');
+    modal.classList.add('visible');
+  }
+  function hideLoginModal() {
+    const modal = document.getElementById('loginModal');
+    modal.classList.add('hiding');
+    setTimeout(() => {
+      modal.classList.remove('visible');
+      modal.classList.remove('hiding');
+      pendingAction = null;
+    }, 300);
+  }
+  document.getElementById('closeLoginModal').addEventListener('click', hideLoginModal);
+  document.getElementById('loginModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('loginModal')) hideLoginModal();
+  });
 
   function formatBytes(b){return b<1048576?(b/1024).toFixed(1)+' KB':(b/1048576).toFixed(1)+' MB';}
 
@@ -937,6 +1405,7 @@
   const loginTabBtn = document.getElementById('showLoginTab');
   const registerTabBtn = document.getElementById('showRegisterTab');
   const userBadge = document.getElementById('userBadge');
+  const accountBtn = document.getElementById('accountBtn');
   const userBadgeName = document.getElementById('userBadgeName');
   const loginConfirmBtn = document.getElementById('loginConfirmBtn');
   const registerConfirmBtn = document.getElementById('registerConfirmBtn');
@@ -964,13 +1433,36 @@
     // Login gating is disabled so the dashboard and analysis are always accessible.
   }
 
-  async function scrollToProfile() {
-    const panel = document.getElementById('profilePanel');
-    if (panel) {
-      panel.style.display = 'block';
-      panel.scrollIntoView({behavior:'smooth', block:'center'});
+  function toggleProfileDropdown(forceState) {
+    const dropdown = document.getElementById('profileDropdown');
+    const blurOverlay = document.getElementById('pageBlurOverlay');
+    const isActive = dropdown.classList.contains('active');
+    const newState = forceState !== undefined ? forceState : !isActive;
+    
+    dropdown.classList.toggle('active', newState);
+    if (blurOverlay) {
+      blurOverlay.classList.toggle('active', newState);
+    }
+    
+    if (newState) {
+      document.getElementById('loadProfileBtn').click();
     }
   }
+
+
+
+  // Close dropdown when clicking outside or on overlay
+  document.addEventListener('click', (e) => {
+    const dropdown = document.getElementById('profileDropdown');
+    const accountBtn = document.getElementById('accountBtn');
+    const blurOverlay = document.getElementById('pageBlurOverlay');
+    
+    if (dropdown.classList.contains('active')) {
+      if (e.target === blurOverlay || (!dropdown.contains(e.target) && !accountBtn.contains(e.target))) {
+        toggleProfileDropdown(false);
+      }
+    }
+  });
 
   async function refreshAdminUsers() {
     if (!appState.isAdmin) return;
@@ -1020,6 +1512,35 @@
     });
   }
 
+  // ── RESIZE LOGIC (Bottom-Left) ──
+  (function(){
+    const resizer = document.getElementById('profileResizer');
+    const panel = document.getElementById('profileDropdown');
+    let isResizing = false;
+
+    resizer.addEventListener('mousedown', e => {
+      isResizing = true;
+      e.preventDefault();
+      document.body.style.cursor = 'nesw-resize';
+    });
+
+    window.addEventListener('mousemove', e => {
+      if (!isResizing) return;
+      // Right edge is fixed at 48px from right.
+      const rightEdge = window.innerWidth - 48; 
+      const newWidth = Math.max(400, rightEdge - e.clientX);
+      const newHeight = Math.max(300, e.clientY - panel.offsetTop);
+      
+      panel.style.width = newWidth + 'px';
+      panel.style.height = newHeight + 'px';
+    });
+
+    window.addEventListener('mouseup', () => {
+      isResizing = false;
+      document.body.style.cursor = '';
+    });
+  })();
+
   async function setUserStatus(user) {
     const badge = document.getElementById('userBadge');
     if (!user) {
@@ -1028,9 +1549,11 @@
       appState.isAdmin = false;
       userBadge.style.display = 'none';
       userBadge.textContent = '';
+      if (accountBtn) accountBtn.textContent = 'LOGIN';
       if (userBadgeName) userBadgeName.style.display = 'none';
-      document.getElementById('profilePanel').style.display = 'none';
-      document.getElementById('profileInfo').textContent = 'Not logged in';
+      toggleProfileDropdown(false); // Close dropdown on logout
+      localStorage.removeItem('athletiq_user'); // Clear persistence
+      document.getElementById('loginForm').style.display = 'grid';
       document.getElementById('loginStatus').textContent = '';
       loginConfirmBtn.style.display = 'none';
       registerConfirmBtn.style.display = 'none';
@@ -1041,16 +1564,33 @@
     appState.userId = user.id;
     appState.username = user.username;
     appState.isAdmin = Boolean(user.is_admin);
+    
+    // Persist session
+    localStorage.setItem('athletiq_user', JSON.stringify({
+      ...user,
+      timestamp: Date.now()
+    }));
+
     badge.style.display = 'inline-flex';
     badge.textContent = user.username.charAt(0).toUpperCase();
     badge.title = `Open profile for ${user.username}`;
+    if (accountBtn) accountBtn.textContent = 'PROFILE';
     if (userBadgeName) {
       userBadgeName.textContent = user.username;
       userBadgeName.style.display = 'inline-flex';
     }
     document.getElementById('loginStatus').textContent = `Welcome, ${user.username}`;
-    document.getElementById('profilePanel').style.display = 'block';
-    document.getElementById('profileInfo').textContent = `Username: ${user.username}\nEmail: ${user.email || '—'}`;
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('registerForm').style.display = 'none';
+    document.getElementById('dropdownUser').textContent = user.username;
+    document.getElementById('dropdownEmail').textContent = user.email || 'NO EMAIL LINKED';
+    
+    // Auto-proceed if modal was open
+    if (document.getElementById('loginModal').classList.contains('visible')) {
+      const action = pendingAction;
+      hideLoginModal();
+      if (action) action();
+    }
     loginConfirmBtn.style.display = 'inline-flex';
     loginConfirmBtn.textContent = '✔ Login successful';
     loginConfirmBtn.style.borderColor = 'rgba(0,255,136,.35)';
@@ -1065,26 +1605,27 @@
 
   loginTabBtn.addEventListener('click', () => showTab('login'));
   registerTabBtn.addEventListener('click', () => showTab('register'));
-  userBadge.addEventListener('click', scrollToProfile);
+  userBadge.addEventListener('click', () => toggleProfileDropdown());
+  if (accountBtn) {
+    accountBtn.addEventListener('click', () => {
+      if (appState.userId) toggleProfileDropdown();
+      else showLoginModal();
+    });
+  }
   if (loadUsersBtn) loadUsersBtn.addEventListener('click', refreshAdminUsers);
 
   document.getElementById('loginBtn').addEventListener('click', async () => {
     const username = document.getElementById('loginUsername').value.trim();
     const password = document.getElementById('loginPassword').value.trim();
-    if (!username || !password) {
-      document.getElementById('loginStatus').textContent = 'Please enter username and password.';
-      loginConfirmBtn.style.display = 'inline-flex';
-      loginConfirmBtn.textContent = '✖ Credentials required';
-      loginConfirmBtn.style.borderColor = 'rgba(255,107,53,.35)';
-      loginConfirmBtn.style.color = '#ff6b35';
-      return;
-    }
+    const btn = document.getElementById('loginBtn');
+    btn.classList.add('btn-loading');
     const res = await fetch('/api/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     });
     const body = await res.json();
+    btn.classList.remove('btn-loading');
     if (body.success) {
       await setUserStatus(body.user);
       showTab('login');
@@ -1102,6 +1643,8 @@
     const username = document.getElementById('registerUsername').value.trim();
     const password = document.getElementById('registerPassword').value.trim();
     const email = document.getElementById('registerEmail').value.trim();
+    const btn = document.getElementById('registerBtn');
+    
     if (!username || !password) {
       document.getElementById('registerStatus').textContent = 'Username and password are required.';
       registerConfirmBtn.style.display = 'inline-flex';
@@ -1110,52 +1653,98 @@
       registerConfirmBtn.style.color = '#ff6b35';
       return;
     }
+
+    btn.classList.add('btn-loading');
     const res = await fetch('/api/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, email })
     });
     const body = await res.json();
+    btn.classList.remove('btn-loading');
+    
     if (body.success) {
       document.getElementById('registerStatus').textContent = 'Account created. You can now login.';
       registerConfirmBtn.style.display = 'inline-flex';
-      registerConfirmBtn.textContent = '✔ Registration successful';
+      registerConfirmBtn.textContent = '✔ Registration success';
       registerConfirmBtn.style.borderColor = 'rgba(0,255,136,.35)';
       registerConfirmBtn.style.color = '#00ff88';
       showTab('login');
     } else {
       document.getElementById('registerStatus').textContent = body.message || 'Registration failed.';
-      registerConfirmBtn.style.display = 'inline-flex';
-      registerConfirmBtn.textContent = '✖ Registration failed';
-      registerConfirmBtn.style.borderColor = 'rgba(255,107,53,.35)';
-      registerConfirmBtn.style.color = '#ff6b35';
     }
   });
 
   async function updateHistoryTable(history) {
     const table = document.getElementById('historyTable');
     if (!history || history.length === 0) {
-      table.innerHTML = '<div style="color:var(--text-dim);">No history available.</div>';
+      table.innerHTML = '<div style="color:var(--text-dim);font-family:\'Share Tech Mono\',monospace;font-size:11px;padding:20px;text-align:center;">No history recorded yet.</div>';
+      document.getElementById('statAvgScore').textContent = '0';
+      document.getElementById('statTotalShots').textContent = '0';
+      document.getElementById('statBestShot').textContent = '—';
       return;
     }
 
+    // Calculate Stats
+    let totalScore = 0;
+    let count = 0;
+    let bestScore = 0;
+    let bestShot = '—';
+
+    history.forEach(item => {
+      const score = item.accuracy_score || 0;
+      if (score > 0) {
+        totalScore += score;
+        count++;
+        if (score > bestScore) {
+          bestScore = score;
+          bestShot = item.shot_type || 'Unknown';
+        }
+      }
+    });
+
+    document.getElementById('statAvgScore').textContent = count > 0 ? Math.round(totalScore / count) : '0';
+    document.getElementById('statTotalShots').textContent = history.length;
+    document.getElementById('statBestShot').textContent = bestScore > 0 ? `${bestShot.toUpperCase()} (${Math.round(bestScore)}%)` : '—';
+
     table.innerHTML = history.map(item => {
-      // Robustly handle UTC strings from PostgreSQL
       let date = new Date(item.created_at);
       if (typeof item.created_at === 'string' && !item.created_at.includes('T') && !item.created_at.includes('Z')) {
-        // If it's a space-separated string from PG, force it to be treated as UTC
         date = new Date(item.created_at.replace(' ', 'T') + 'Z');
       }
-      const localDateStr = date.toLocaleString();
+      const localDateStr = date.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const score = Math.round(item.accuracy_score || 0);
+      let shot = (item.shot_type || '').toUpperCase();
       
-      return `<div style="display:grid;grid-template-columns:1fr auto;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08);">
-        <div>
-          <div style="font-family:'Share Tech Mono',monospace;font-size:12px;color:#fff;">${item.entry_text}</div>
-          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:6px;">${localDateStr}</div>
-        </div>
-        <button class="btn-ghost" style="align-self:start;padding:8px 12px;font-size:10px;" data-entry-id="${item.id}">Delete</button>
-      </div>`;
+      // Fallback for legacy data: try to extract from entry_text
+      if (!shot && item.entry_text) {
+        const match = item.entry_text.match(/Shot:\s*([^|]+)/i);
+        if (match) shot = match[1].trim().toUpperCase();
+      }
+      if (!shot) shot = 'GENERAL';
+
+      return `
+        <div class="history-item-card" style="display:flex; align-items:center; gap:16px; padding:16px; background:rgba(255,255,255,0.03); border:1px solid var(--border); transition: transform 0.2s, background 0.2s;">
+          <div class="history-score-badge" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center; background:rgba(0,255,136,0.1); border:1px solid var(--acid); color:var(--acid); font-family:'Share Tech Mono',monospace; font-size:14px; font-weight:bold; border-radius:4px;">${score}</div>
+          <div style="flex:1;">
+            <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:#fff;letter-spacing:1.5px;font-weight:bold;">${shot} ANALYSIS</div>
+            <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:4px; opacity:0.7;">${localDateStr}</div>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn-ghost" style="padding:6px 12px;font-size:9px; border-color:rgba(255,255,255,0.1);" data-delete-id="${item.id}">DELETE</button>
+          </div>
+        </div>`;
     }).join('');
+
+    table.querySelectorAll('[data-delete-id]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-delete-id');
+        const res = await fetch(`/api/history/${appState.userId}/${id}`, { method: 'DELETE' });
+        const body = await res.json();
+        if (body.success) updateHistoryTable(body.history);
+      });
+    });
   }
 
   document.getElementById('loadProfileBtn').addEventListener('click', async () => {
@@ -1193,16 +1782,34 @@
   showTab('login');
   setUserStatus(null);
 
-  browseBtn.addEventListener('click',()=>fileInput.click());
-  fileInput.addEventListener('change',()=>{if(fileInput.files[0])setFile(fileInput.files[0]);});
-  removeFileBtn.addEventListener('click',clearFile);
-  dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragging');});
-  dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragging'));
-  dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragging');const f=e.dataTransfer.files[0];if(f&&f.type.startsWith('video/'))setFile(f);});
-  proceedBtn.addEventListener('click',()=>{
-    if(currentFile) {
-      goToStep(2);
-      launchDashboard();
+  browseBtn.addEventListener('click', () => {
+    if (appState.userId) fileInput.click();
+    else showLoginModal(() => fileInput.click());
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) setFile(fileInput.files[0]); });
+  removeFileBtn.addEventListener('click', clearFile);
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('dragging');
+    const f = e.dataTransfer.files[0];
+    if (f && f.type.startsWith('video/')) {
+      if (appState.userId) setFile(f);
+      else showLoginModal(() => setFile(f));
+    }
+  });
+  proceedBtn.addEventListener('click', () => {
+    if (currentFile) {
+      if (appState.userId) {
+        goToStep(2);
+        launchDashboard();
+      } else {
+        showLoginModal(() => {
+          goToStep(2);
+          launchDashboard();
+        });
+      }
     }
   });
   backToUploadBtn.addEventListener('click',()=>goToStep(1));
@@ -1368,6 +1975,22 @@
       {type:'info',icon:'ℹ',label:'HEAD POSITION',text:'Head still within 3° variance. Keep eyes tracking the ball through contact.'}
     ]
   };
+
+  // Restore session on load (Main Scope)
+  const saved = localStorage.getItem('athletiq_user');
+  if (saved) {
+    try {
+      const data = JSON.parse(saved);
+      const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000;
+      if (Date.now() - data.timestamp < SEVEN_DAYS) {
+        setUserStatus(data);
+      } else {
+        localStorage.removeItem('athletiq_user');
+      }
+    } catch(e) {
+      localStorage.removeItem('athletiq_user');
+    }
+  }
 })();
 </script>
 </body>
