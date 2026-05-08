@@ -312,260 +312,476 @@ def create_stick_figure_video(video_path, segmented_video_path=None, progress=No
 
 # ── NEW: Interactive Pose Widget ───────────────────────────────────────────────
 def generate_interactive_widget(pose_json_path, shot_type="None"):
+    import json, os, math
+    import numpy as np
+
     if not pose_json_path or not os.path.exists(pose_json_path):
         return "<p style='color:gray'>No pose data available.</p>"
 
     with open(pose_json_path, "r") as f:
-        widget_data = json.load(f)
+        frames = json.load(f)
 
-    if not widget_data:
+    if not frames:
         return "<p style='color:gray'>No pose data available.</p>"
 
-    print(f"Widget: {len(widget_data)} frames loaded")
+    # ---- Average landmarks and angles across all frames ----
+    all_landmarks, all_angles = {}, {}
+    for frame in frames:
+        for k, v in frame.get("landmarks", {}).items():
+            all_landmarks.setdefault(k, []).append([v["x"], v["y"]])
+        for k, v in frame.get("angles", {}).items():
+            all_angles.setdefault(k, []).append(v)
 
-    IDEAL_RANGES = {
-        "default":    {"left_elbow_angle":(150,180),"right_elbow_angle":(150,180),"left_knee_angle":(140,175),"right_knee_angle":(140,175),"left_hip_angle":(160,180),"right_hip_angle":(160,180)},
-        "flick":      {"left_elbow_angle":(80,140),"right_elbow_angle":(100,160),"left_knee_angle":(130,165),"right_knee_angle":(140,175),"left_hip_angle":(150,175),"right_hip_angle":(150,175)},
-        "cover":      {"left_elbow_angle":(140,175),"right_elbow_angle":(100,150),"left_knee_angle":(140,165),"right_knee_angle":(150,175),"left_hip_angle":(155,175),"right_hip_angle":(155,175)},
-        "defense":    {"left_elbow_angle":(150,180),"right_elbow_angle":(150,180),"left_knee_angle":(145,175),"right_knee_angle":(145,175),"left_hip_angle":(160,180),"right_hip_angle":(160,180)},
-        "pull":       {"left_elbow_angle":(70,130),"right_elbow_angle":(70,130),"left_knee_angle":(120,160),"right_knee_angle":(120,160),"left_hip_angle":(140,170),"right_hip_angle":(140,170)},
-        "sweep":      {"left_elbow_angle":(80,140),"right_elbow_angle":(80,140),"left_knee_angle":(80,120),"right_knee_angle":(130,165),"left_hip_angle":(130,165),"right_hip_angle":(140,175)},
-        "hook":       {"left_elbow_angle":(70,120),"right_elbow_angle":(70,120),"left_knee_angle":(120,160),"right_knee_angle":(120,160),"left_hip_angle":(140,170),"right_hip_angle":(140,170)},
-        "straight":   {"left_elbow_angle":(140,180),"right_elbow_angle":(100,150),"left_knee_angle":(140,170),"right_knee_angle":(150,175),"left_hip_angle":(155,180),"right_hip_angle":(155,180)},
-        "square_cut": {"left_elbow_angle":(100,150),"right_elbow_angle":(100,150),"left_knee_angle":(130,165),"right_knee_angle":(130,165),"left_hip_angle":(145,175),"right_hip_angle":(145,175)},
-        "late_cut":   {"left_elbow_angle":(100,155),"right_elbow_angle":(100,155),"left_knee_angle":(130,165),"right_knee_angle":(130,165),"left_hip_angle":(145,175),"right_hip_angle":(145,175)},
-        "lofted":     {"left_elbow_angle":(140,180),"right_elbow_angle":(100,150),"left_knee_angle":(130,165),"right_knee_angle":(140,175),"left_hip_angle":(150,180),"right_hip_angle":(150,180)},
+    avg_landmarks = {
+        k: {"x": float(np.mean([p[0] for p in pts])),
+            "y": float(np.mean([p[1] for p in pts]))}
+        for k, pts in all_landmarks.items()
+    }
+    avg_angles = {k: float(np.mean(v)) for k, v in all_angles.items() if v}
+
+    # ---- Geometric fallback: angle at vertex B in triangle A-B-C ----
+    def angle_from_pts(a, b, c):
+        if not all(n in avg_landmarks for n in (a, b, c)):
+            return None
+        A, B, C = avg_landmarks[a], avg_landmarks[b], avg_landmarks[c]
+        ba = (A["x"]-B["x"], A["y"]-B["y"])
+        bc = (C["x"]-B["x"], C["y"]-B["y"])
+        dot = ba[0]*bc[0] + ba[1]*bc[1]
+        mag = math.sqrt(ba[0]**2+ba[1]**2) * math.sqrt(bc[0]**2+bc[1]**2)
+        return math.degrees(math.acos(max(-1.0, min(1.0, dot/mag)))) if mag > 1e-9 else None
+
+    TRIPLETS = {
+        "left_shoulder":  ("left_elbow",    "left_shoulder",  "left_hip"),
+        "right_shoulder": ("right_elbow",   "right_shoulder", "right_hip"),
+        "left_elbow":     ("left_shoulder", "left_elbow",     "left_wrist"),
+        "right_elbow":    ("right_shoulder","right_elbow",    "right_wrist"),
+        "left_hip":       ("left_shoulder", "left_hip",       "left_knee"),
+        "right_hip":      ("right_shoulder","right_hip",      "right_knee"),
+        "left_knee":      ("left_hip",      "left_knee",      "left_ankle"),
+        "right_knee":     ("right_hip",     "right_knee",     "right_ankle"),
     }
 
-    shot_key        = shot_type.lower().replace(" ","_").replace("_shot","").replace("_drive","") if shot_type and shot_type != "None" else "default"
-    ranges          = IDEAL_RANGES.get(shot_key, IDEAL_RANGES["default"])
-    pose_json_str   = json.dumps(widget_data)
-    ranges_json_str = json.dumps(ranges)
+    def resolve_angle(jname):
+        # Try every likely key variant the pose system might use
+        for key in (f"{jname}_angle", jname, f"angle_{jname}", jname.replace("_","")):
+            if key in avg_angles:
+                return avg_angles[key]
+        # Geometric fallback from landmark positions
+        t = TRIPLETS.get(jname)
+        return angle_from_pts(*t) if t else None
 
-    html_page = """<!DOCTYPE html>
-<html>
-<head>
-<style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:#0d1117; color:white; font-family:Arial,sans-serif; padding:12px; overflow-x:hidden; }
-  #wrap { display:flex; gap:12px; }
-  #left { flex:1; min-width:0; }
-  canvas { background:#161b22; border-radius:8px; border:1px solid #30363d; cursor:crosshair; display:block; width:100%; }
-  #slider { width:100%; accent-color:#58a6ff; margin-top:8px; }
-  #frameInfo { display:flex; justify-content:space-between; font-size:11px; color:#8b949e; margin-top:4px; }
-  #right { width:210px; flex-shrink:0; }
-  .panel { background:#161b22; border-radius:8px; padding:10px; border:1px solid #30363d; margin-bottom:8px; }
-  .panel-title { font-size:11px; font-weight:bold; color:#8b949e; margin-bottom:8px; letter-spacing:0.5px; }
-  .legend-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; flex-shrink:0; }
-  .legend-item { display:flex; align-items:center; font-size:11px; color:#8b949e; margin-bottom:4px; }
-  .angle-row { margin-bottom:8px; font-size:11px; }
-  .angle-name { color:#c9d1d9; text-transform:capitalize; }
-  .angle-val { font-weight:bold; float:right; }
-  .angle-ideal { font-size:10px; color:#8b949e; clear:both; padding-top:1px; }
-</style>
-</head>
-<body>
-<div id="wrap">
-  <div id="left">
-    <canvas id="c" width="420" height="500"></canvas>
-    <input type="range" id="slider" min="0" value="0">
-    <div id="frameInfo">
-      <span>Frame 0</span>
-      <span id="fcur">Frame 0</span>
-      <span id="fmax">Frame 0</span>
+    # ---- Ideal ranges ----
+    IDEAL_RANGES = {
+        "default": {
+            "left_elbow_angle":(150,180),"right_elbow_angle":(150,180),
+            "left_knee_angle":(140,175),"right_knee_angle":(140,175),
+            "left_hip_angle":(160,180),"right_hip_angle":(160,180),
+            "left_shoulder_angle":(80,120),"right_shoulder_angle":(80,120),
+        },
+        "flick": {
+            "left_elbow_angle":(80,140),"right_elbow_angle":(100,160),
+            "left_knee_angle":(130,165),"right_knee_angle":(140,175),
+            "left_hip_angle":(150,175),"right_hip_angle":(150,175),
+            "left_shoulder_angle":(60,100),"right_shoulder_angle":(70,110),
+        },
+        "cover": {
+            "left_elbow_angle":(140,175),"right_elbow_angle":(100,150),
+            "left_knee_angle":(140,165),"right_knee_angle":(150,175),
+            "left_hip_angle":(155,175),"right_hip_angle":(155,175),
+            "left_shoulder_angle":(75,110),"right_shoulder_angle":(75,115),
+        },
+        "defense": {
+            "left_elbow_angle":(150,180),"right_elbow_angle":(150,180),
+            "left_knee_angle":(145,175),"right_knee_angle":(145,175),
+            "left_hip_angle":(160,180),"right_hip_angle":(160,180),
+            "left_shoulder_angle":(85,120),"right_shoulder_angle":(85,120),
+        },
+        "pull": {
+            "left_elbow_angle":(70,130),"right_elbow_angle":(70,130),
+            "left_knee_angle":(120,160),"right_knee_angle":(120,160),
+            "left_hip_angle":(140,170),"right_hip_angle":(140,170),
+            "left_shoulder_angle":(50,90),"right_shoulder_angle":(50,90),
+        },
+        "sweep": {
+            "left_elbow_angle":(110,155),"right_elbow_angle":(110,155),
+            "left_knee_angle":(100,145),"right_knee_angle":(110,150),
+            "left_hip_angle":(130,165),"right_hip_angle":(130,165),
+            "left_shoulder_angle":(60,100),"right_shoulder_angle":(60,100),
+        },
+    }
+
+    JOINT_TIPS = {
+        "default": {
+            "left_elbow":"Keep elbows relaxed and close to the body for bat control.",
+            "right_elbow":"Drive through with the right elbow leading the bat path.",
+            "left_knee":"Bend the front knee to stay balanced over the ball.",
+            "right_knee":"Flex the back knee slightly for a stable base.",
+            "left_hip":"Stay upright at the hips for a clean, straight bat swing.",
+            "right_hip":"Rotate the back hip through impact for power.",
+            "left_shoulder":"Keep the front shoulder pointed at the bowler.",
+            "right_shoulder":"Bring the back shoulder through the line of the ball.",
+        },
+        "flick": {
+            "left_elbow":"Bend the front elbow early - this powers the flick.",
+            "right_elbow":"The right elbow drives the wrist rotation; keep it flexible.",
+            "left_knee":"A firm front leg creates the lever for the flick.",
+            "right_knee":"Push off the back knee to transfer weight forward.",
+            "left_hip":"Stable left hip is the pivot point for the wrist flick.",
+            "right_hip":"Rotate the right hip through to add pace to the stroke.",
+            "left_shoulder":"Lock the front shoulder - do not let it fly open early.",
+            "right_shoulder":"Follow through with the right shoulder for full extension.",
+        },
+        "cover": {
+            "left_elbow":"Extend the front elbow through the line of the ball.",
+            "right_elbow":"Keep the right elbow tucked to avoid an open face.",
+            "left_knee":"Drive off a bent front knee toward the pitch of the ball.",
+            "right_knee":"Back knee low - this helps transfer weight forward.",
+            "left_hip":"Lead with the front hip toward the ball line.",
+            "right_hip":"Let the back hip open naturally as weight shifts forward.",
+            "left_shoulder":"Lead with the front shoulder pointing cover-wards.",
+            "right_shoulder":"Follow through: right shoulder should end over the left foot.",
+        },
+        "defense": {
+            "left_elbow":"Keep elbows high and close to guide the ball down safely.",
+            "right_elbow":"Right elbow up and in - prevents bat from angling away.",
+            "left_knee":"Soft bend in the front knee to absorb pace.",
+            "right_knee":"Slight flex in the back knee - avoid locking out.",
+            "left_hip":"Stay tall at the hips; collapsing causes inside edges.",
+            "right_hip":"Do not rotate the back hip - stay sideways for defense.",
+            "left_shoulder":"Front shoulder stays high and closed to keep bat straight.",
+            "right_shoulder":"Resist the urge to open the right shoulder early.",
+        },
+        "pull": {
+            "left_elbow":"Front elbow bent sharply to swing across the line.",
+            "right_elbow":"Right elbow drives down through the ball to keep it low.",
+            "left_knee":"Stay low - bend both knees to get under the ball.",
+            "right_knee":"Deep back knee flex creates the coiled power for the pull.",
+            "left_hip":"Pivot the left hip early to make room for the pull swing.",
+            "right_hip":"Explosive right hip rotation generates pull-shot power.",
+            "left_shoulder":"Front shoulder drops slightly to get under the short ball.",
+            "right_shoulder":"Roll the right shoulder over to keep the ball on the ground.",
+        },
+        "sweep": {
+            "left_elbow":"Front elbow leads low - sweeping motion stays close to the pad.",
+            "right_elbow":"Right elbow drops to guide the bat across the line.",
+            "left_knee":"Front knee down - the hallmark of a good sweep.",
+            "right_knee":"Back knee nearly touching the ground for a balanced sweep.",
+            "left_hip":"Stay low at the hips; rising up causes mistimed sweeps.",
+            "right_hip":"Rotate the back hip to sweep square or fine.",
+            "left_shoulder":"Front shoulder aims at the leg side target.",
+            "right_shoulder":"Full shoulder rotation completes the sweep follow-through.",
+        },
+    }
+
+    GENERAL_TIPS = {
+        "default":"Maintain balance and smooth swing throughout the shot.",
+        "defense":"Keep bat close to pad, head over the ball for control.",
+        "flick":"Use wrist rotation and maintain a firm front-leg base.",
+        "cover":"Lead with the front shoulder and transfer weight forward.",
+        "pull":"Stay low, roll wrists to keep the ball on the ground.",
+        "sweep":"Stay balanced and use the front knee for stability.",
+    }
+
+    shot_key = shot_type.lower().replace(" ","_").replace("-","_")
+    if shot_key not in IDEAL_RANGES:
+        shot_key = "default"
+
+    ranges      = IDEAL_RANGES[shot_key]
+    joint_tips  = JOINT_TIPS.get(shot_key, JOINT_TIPS["default"])
+    general_tip = GENERAL_TIPS.get(shot_key, GENERAL_TIPS["default"])
+
+    def joint_status(akey, val):
+        if akey not in ranges:
+            return "Tracked", "#58a6ff", "ref"
+        lo, hi = ranges[akey]
+        margin = (hi-lo)*0.3
+        if lo <= val <= hi:            return "Ideal",       "#3fb950", "ideal"
+        if lo-margin <= val <= hi+margin: return "Slightly off","#d29922", "warn"
+        return "Needs work", "#f85149", "bad"
+
+    connections = [
+        ("left_shoulder","right_shoulder"),("left_shoulder","left_elbow"),
+        ("left_elbow","left_wrist"),("right_shoulder","right_elbow"),
+        ("right_elbow","right_wrist"),("left_shoulder","left_hip"),
+        ("right_shoulder","right_hip"),("left_hip","right_hip"),
+        ("left_hip","left_knee"),("left_knee","left_ankle"),
+        ("right_hip","right_knee"),("right_knee","right_ankle"),
+    ]
+
+    xs = [v["x"] for v in avg_landmarks.values()]
+    ys = [v["y"] for v in avg_landmarks.values()]
+    minx,maxx = min(xs),max(xs)
+    miny,maxy = min(ys),max(ys)
+
+    def norm(vx, vy, W=280, H=380, pad=24):
+        sx = (vx-minx)/(maxx-minx+1e-6)
+        sy = (vy-miny)/(maxy-miny+1e-6)
+        return round(pad+sx*(W-2*pad),1), round(pad+sy*(H-2*pad),1)
+
+    TRACKED = ["left_shoulder","right_shoulder","left_elbow","right_elbow",
+               "left_hip","right_hip","left_knee","right_knee"]
+
+    joint_data = {}
+    for jname in TRACKED:
+        if jname not in avg_landmarks:
+            continue
+        lm = avg_landmarks[jname]
+        cx, cy = norm(lm["x"], lm["y"])
+        val = resolve_angle(jname)
+        akey = f"{jname}_angle"
+        if val is not None:
+            status, color, skey = joint_status(akey, val)
+            lo_hi = ranges.get(akey)
+            ideal_str = f"{lo_hi[0]}-{lo_hi[1]}" if lo_hi else ""
+        else:
+            status, color, skey = "Tracked", "#58a6ff", "ref"
+            ideal_str = ""
+        joint_data[jname] = {
+            "cx": cx, "cy": cy, "color": color,
+            "status": status, "skey": skey,
+            "angle": f"{val:.1f}" if val is not None else "",
+            "ideal": ideal_str,
+            "tip": joint_tips.get(jname, "Focus on correct form for this joint."),
+            "label": jname.replace("_"," ").title(),
+        }
+
+    # Build SVG lines
+    lines_svg = ""
+    for a, b in connections:
+        if a in avg_landmarks and b in avg_landmarks:
+            x1,y1 = norm(avg_landmarks[a]["x"], avg_landmarks[a]["y"])
+            x2,y2 = norm(avg_landmarks[b]["x"], avg_landmarks[b]["y"])
+            lines_svg += f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#2a3347" stroke-width="3" stroke-linecap="round"/>'
+
+    # Build SVG circles — id uses underscores so JS lookup is simple
+    circles_svg = ""
+    for jname, jd in joint_data.items():
+        circles_svg += (
+            f'<circle id="jc_{jname}" cx="{jd["cx"]}" cy="{jd["cy"]}" r="8" '
+            f'fill="{jd["color"]}" stroke="#0d1117" stroke-width="2" '
+            f'style="cursor:pointer;"/>'
+        )
+    for lname in ["left_wrist","right_wrist","left_ankle","right_ankle"]:
+        if lname in avg_landmarks and lname not in joint_data:
+            lm = avg_landmarks[lname]
+            cx,cy = norm(lm["x"],lm["y"])
+            circles_svg += f'<circle cx="{cx}" cy="{cy}" r="5" fill="#3a4459" stroke="#0d1117" stroke-width="1.5"/>'
+
+    # Build table rows
+    table_rows = ""
+    for jname in TRACKED:
+        if jname not in joint_data:
+            continue
+        jd = joint_data[jname]
+        bbg = {"ideal":"#1a2f1c","warn":"#2e2105","bad":"#2f1117"}.get(jd["skey"],"#1a1f2e")
+        angle_disp = f'{jd["angle"]}&deg;' if jd["angle"] else "N/A"
+        ideal_disp = f'{jd["ideal"]}&deg;' if jd["ideal"] else "N/A"
+        table_rows += (
+            f'<tr id="tr_{jname}" style="cursor:pointer;border-bottom:1px solid #1e2535;">'
+            f'<td style="padding:8px 10px;color:#8b949e;font-size:12px;white-space:nowrap;">'
+            f'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;'
+            f'background:{jd["color"]};margin-right:7px;vertical-align:middle;"></span>'
+            f'{jd["label"]}</td>'
+            f'<td style="padding:8px 6px;color:{jd["color"]};font-weight:600;font-size:13px;">{angle_disp}</td>'
+            f'<td style="padding:8px 6px;font-size:11px;color:#8b949e;">{ideal_disp}</td>'
+            f'<td style="padding:8px 6px;">'
+            f'<span style="font-size:10px;padding:2px 7px;border-radius:4px;'
+            f'background:{bbg};color:{jd["color"]};font-weight:600;">{jd["status"]}</span>'
+            f'</td></tr>'
+        )
+
+    # Build JS data as a plain object literal (no json.dumps to avoid unicode escapes)
+    # Each entry: jname -> {color, status, skey, angle, ideal, tip, label, cx, cy}
+    js_entries = []
+    for jname, jd in joint_data.items():
+        # Escape single quotes in tip
+        tip_safe = jd["tip"].replace("'", "\\'")
+        label_safe = jd["label"].replace("'", "\\'")
+        js_entries.append(
+            f"'{jname}':{{"
+            f"color:'{jd['color']}',"
+            f"status:'{jd['status']}',"
+            f"skey:'{jd['skey']}',"
+            f"angle:'{jd['angle']}',"
+            f"ideal:'{jd['ideal']}',"
+            f"tip:'{tip_safe}',"
+            f"label:'{label_safe}',"
+            f"cx:'{jd['cx']}',"
+            f"cy:'{jd['cy']}'"
+            f"}}"
+        )
+    js_data = "{" + ",".join(js_entries) + "}"
+
+    shot_display = shot_type if shot_type and shot_type.lower() != "none" else "General"
+    frame_count  = len(frames)
+
+    # ---- HTML + inline JS (no f-string braces in JS, use string concat in JS instead) ----
+    html = """
+<div id="cpw" style="font-family:'Segoe UI',system-ui,sans-serif;background:#0d1117;color:#e6edf3;border-radius:12px;overflow:hidden;border:1px solid #1e2535;">
+
+  <div style="background:#161b22;border-bottom:1px solid #1e2535;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <span style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:#58a6ff;font-weight:600;">Cricket Pose Analysis</span>
+      <span style="margin-left:10px;font-size:11px;background:#1f2d3d;color:#58a6ff;padding:2px 9px;border-radius:20px;border:1px solid #2a4060;">""" + shot_display + """</span>
     </div>
+    <div style="font-size:11px;color:#484f58;">""" + str(frame_count) + """ frame""" + ("s" if frame_count != 1 else "") + """ averaged</div>
   </div>
-  <div id="right">
-    <div class="panel" id="clickPanel">
-      <p style="color:#8b949e;font-size:12px;margin:0;">👆 Click a joint to inspect</p>
+
+  <div style="display:flex;">
+
+    <div style="flex:0 0 auto;background:#0d1117;border-right:1px solid #1e2535;padding:16px;display:flex;flex-direction:column;align-items:center;">
+      <svg id="cpw_svg" viewBox="0 0 328 428" width="230" height="310" style="background:#0d1117;border-radius:8px;display:block;">
+        """ + lines_svg + circles_svg + """
+        <circle id="cpw_ring" cx="-999" cy="-999" r="15" fill="none" stroke="#fff" stroke-width="2.5" stroke-dasharray="5 3" opacity="0"/>
+      </svg>
+      <p style="font-size:10px;color:#484f58;margin:8px 0 0;text-align:center;">Click any joint to inspect</p>
+      <div style="display:flex;gap:12px;margin-top:8px;">
+        <span style="font-size:10px;color:#3fb950;">&#9679; Ideal</span>
+        <span style="font-size:10px;color:#d29922;">&#9679; Slightly off</span>
+        <span style="font-size:10px;color:#f85149;">&#9679; Needs work</span>
+      </div>
     </div>
-    <div class="panel">
-      <div class="panel-title">JOINT ANGLES</div>
-      <div id="angleList"></div>
-    </div>
-    <div class="panel">
-      <div class="panel-title">LEGEND</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#3fb950"></span>Ideal range</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#d29922"></span>Slightly off</div>
-      <div class="legend-item"><span class="legend-dot" style="background:#f85149"></span>Needs work</div>
+
+    <div style="flex:1;min-width:0;display:flex;flex-direction:column;">
+      <div id="cpw_detail" style="padding:16px 18px;background:#161b22;border-bottom:1px solid #1e2535;min-height:145px;display:flex;align-items:center;justify-content:center;">
+        <div style="color:#484f58;font-size:13px;text-align:center;line-height:1.8;">Select a joint on the figure<br>or in the table below</div>
+      </div>
+
+      <div>
+        <table id="cpw_table" style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead>
+            <tr style="background:#161b22;border-bottom:1px solid #1e2535;">
+              <th style="padding:7px 10px;text-align:left;color:#484f58;font-weight:500;font-size:11px;">JOINT</th>
+              <th style="padding:7px 6px;text-align:left;color:#484f58;font-weight:500;font-size:11px;">ANGLE</th>
+              <th style="padding:7px 6px;text-align:left;color:#484f58;font-weight:500;font-size:11px;">IDEAL</th>
+              <th style="padding:7px 6px;text-align:left;color:#484f58;font-weight:500;font-size:11px;">STATUS</th>
+            </tr>
+          </thead>
+          <tbody>""" + table_rows + """</tbody>
+        </table>
+      </div>
+
+      <div style="padding:12px 18px;background:#161b22;border-top:1px solid #1e2535;margin-top:auto;">
+        <p style="font-size:10px;color:#58a6ff;margin:0 0 4px;letter-spacing:1px;text-transform:uppercase;font-weight:600;">General coaching tip</p>
+        <p style="font-size:12px;line-height:1.6;color:#8b949e;margin:0;">""" + general_tip + """</p>
+      </div>
     </div>
   </div>
 </div>
+
 <script>
-var DATA   = """ + pose_json_str + """;
-var RANGES = """ + ranges_json_str + """;
-var CONN = [
-  ['left_shoulder','right_shoulder'],
-  ['left_shoulder','left_elbow'],['left_elbow','left_wrist'],
-  ['right_shoulder','right_elbow'],['right_elbow','right_wrist'],
-  ['left_shoulder','left_hip'],['right_shoulder','right_hip'],
-  ['left_hip','right_hip'],
-  ['left_hip','left_knee'],['left_knee','left_ankle'],
-  ['right_hip','right_knee'],['right_knee','right_ankle']
-];
-var ANGLE_MAP = [
-  ['left_elbow_angle','left_elbow'],
-  ['right_elbow_angle','right_elbow'],
-  ['left_knee_angle','left_knee'],
-  ['right_knee_angle','right_knee'],
-  ['left_hip_angle','left_hip'],
-  ['right_hip_angle','right_hip']
-];
-var canvas     = document.getElementById('c');
-var ctx        = canvas.getContext('2d');
-var slider     = document.getElementById('slider');
-var fcur       = document.getElementById('fcur');
-var fmax       = document.getElementById('fmax');
-var angleList  = document.getElementById('angleList');
-var clickPanel = document.getElementById('clickPanel');
-var selectedJoint = null;
-slider.max = DATA.length - 1;
-fmax.textContent = 'Frame ' + (DATA.length - 1);
-function getColor(key, val) {
-  if (!RANGES[key]) return '#58a6ff';
-  var lo = RANGES[key][0], hi = RANGES[key][1];
-  var margin = (hi - lo) * 0.3;
-  if (val >= lo && val <= hi) return '#3fb950';
-  if (val >= lo - margin && val <= hi + margin) return '#d29922';
-  return '#f85149';
+var CPW_DATA = """ + js_data + """;
+var CPW_CUR  = null;
+
+function cpwCircle(n) { return document.getElementById('jc_' + n); }
+function cpwRow(n)    { return document.getElementById('tr_' + n); }
+
+function cpwDesel() {
+  if (!CPW_CUR) return;
+  var el = cpwCircle(CPW_CUR);
+  if (el) { el.setAttribute('r','8'); el.setAttribute('stroke','#0d1117'); el.setAttribute('stroke-width','2'); }
+  var row = cpwRow(CPW_CUR);
+  if (row) row.style.background = '';
+  var ring = document.getElementById('cpw_ring');
+  if (ring) { ring.setAttribute('opacity','0'); ring.setAttribute('cx','-999'); ring.setAttribute('cy','-999'); }
+  CPW_CUR = null;
 }
-function getStatus(key, val) {
-  if (!RANGES[key]) return 'No reference';
-  var lo = RANGES[key][0], hi = RANGES[key][1];
-  var margin = (hi - lo) * 0.3;
-  if (val >= lo && val <= hi) return 'Ideal';
-  if (val >= lo - margin && val <= hi + margin) return 'Slightly off';
-  return 'Needs work';
+
+function cpwSel(name) {
+  if (CPW_CUR === name) { cpwDesel(); cpwReset(); return; }
+  cpwDesel();
+  CPW_CUR = name;
+  var jd = CPW_DATA[name];
+  if (!jd) return;
+
+  var el = cpwCircle(name);
+  if (el) {
+    el.setAttribute('r','13');
+    el.setAttribute('stroke', jd.color);
+    el.setAttribute('stroke-width','3');
+  }
+
+  var ring = document.getElementById('cpw_ring');
+  if (ring) {
+    ring.setAttribute('cx', jd.cx);
+    ring.setAttribute('cy', jd.cy);
+    ring.setAttribute('stroke', jd.color);
+    ring.setAttribute('opacity','1');
+  }
+
+  var row = cpwRow(name);
+  if (row) row.style.background = '#1c2333';
+
+  var bbg = jd.skey === 'ideal' ? '#1a2f1c' : jd.skey === 'warn' ? '#2e2105' : jd.skey === 'bad' ? '#2f1117' : '#1a1f2e';
+  var aTxt = jd.angle ? (jd.angle + '&#176;') : '&mdash;';
+  var iTxt = jd.ideal ? (jd.ideal + '&#176;') : '&mdash;';
+
+  var detail = document.getElementById('cpw_detail');
+  if (!detail) return;
+  detail.innerHTML =
+    '<div style="display:flex;align-items:flex-start;gap:14px;width:100%;">' +
+      '<div style="flex:0 0 44px;">' +
+        '<div style="width:44px;height:44px;border-radius:50%;background:' + bbg + ';border:2px solid ' + jd.color + ';display:flex;align-items:center;justify-content:center;">' +
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="' + jd.color + '" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>' +
+        '</div>' +
+      '</div>' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap;">' +
+          '<span style="font-size:14px;font-weight:600;color:#e6edf3;">' + jd.label + '</span>' +
+          '<span style="font-size:10px;padding:2px 8px;border-radius:4px;background:' + bbg + ';color:' + jd.color + ';font-weight:600;">' + jd.status + '</span>' +
+        '</div>' +
+        '<div style="display:flex;gap:20px;margin-bottom:10px;">' +
+          '<div><div style="font-size:10px;color:#484f58;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Detected</div><div style="font-size:26px;font-weight:700;color:' + jd.color + ';line-height:1;">' + aTxt + '</div></div>' +
+          '<div style="border-left:1px solid #1e2535;padding-left:20px;"><div style="font-size:10px;color:#484f58;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:3px;">Ideal range</div><div style="font-size:26px;font-weight:700;color:#484f58;line-height:1;">' + iTxt + '</div></div>' +
+        '</div>' +
+        '<div style="background:#0d1117;border-radius:6px;padding:9px 12px;border-left:3px solid ' + jd.color + ';">' +
+          '<p style="font-size:10px;color:#58a6ff;margin:0 0 3px;letter-spacing:0.8px;text-transform:uppercase;font-weight:600;">Coaching tip</p>' +
+          '<p style="font-size:12px;color:#c9d1d9;margin:0;line-height:1.6;">' + jd.tip + '</p>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
 }
-function scaleLandmarks(lm, W, H) {
-  var xs = [], ys = [];
-  for (var k in lm) { xs.push(lm[k].x); ys.push(lm[k].y); }
-  var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
-  var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
-  var pad = 55;
-  var rangeX = maxX - minX || 0.001;
-  var rangeY = maxY - minY || 0.001;
-  var scaleX = (W - pad * 2) / rangeX;
-  var scaleY = (H - pad * 2) / rangeY;
-  var scale  = Math.min(scaleX, scaleY);
-  var offX   = (W - rangeX * scale) / 2 - minX * scale;
-  var offY   = (H - rangeY * scale) / 2 - minY * scale;
-  var result = {};
-  for (var name in lm) {
-    result[name] = { x: lm[name].x * scale + offX, y: lm[name].y * scale + offY };
-  }
-  return result;
+
+function cpwReset() {
+  var d = document.getElementById('cpw_detail');
+  if (d) d.innerHTML = '<div style="color:#484f58;font-size:13px;text-align:center;line-height:1.8;">Select a joint on the figure<br>or in the table below</div>';
 }
-function draw(idx) {
-  var W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
-  var frame = DATA[idx];
-  if (!frame || !frame.landmarks || Object.keys(frame.landmarks).length === 0) {
-    ctx.fillStyle = '#8b949e'; ctx.font = '13px Arial'; ctx.textAlign = 'center';
-    ctx.fillText('No pose detected for this frame', W / 2, H / 2);
-    ctx.textAlign = 'left'; return;
+
+function cpwInit() {
+  // Wire SVG circles individually — most robust approach for sandboxed iframes
+  var jnames = Object.keys(CPW_DATA);
+  for (var i = 0; i < jnames.length; i++) {
+    (function(n) {
+      var el = cpwCircle(n);
+      if (el) el.onclick = function(e) { e.stopPropagation(); cpwSel(n); };
+    })(jnames[i]);
   }
-  var rawLm  = frame.landmarks;
-  var lm     = scaleLandmarks(rawLm, W, H);
-  var angles = frame.angles || {};
-  var jColors = {};
-  for (var i = 0; i < ANGLE_MAP.length; i++) {
-    var ak = ANGLE_MAP[i][0], jn = ANGLE_MAP[i][1];
-    if (angles[ak] != null) jColors[jn] = getColor(ak, angles[ak]);
+
+  // Wire table rows individually
+  for (var j = 0; j < jnames.length; j++) {
+    (function(n) {
+      var row = cpwRow(n);
+      if (row) row.onclick = function() { cpwSel(n); };
+    })(jnames[j]);
   }
-  for (var i = 0; i < CONN.length; i++) {
-    var a = CONN[i][0], b = CONN[i][1];
-    if (!lm[a] || !lm[b]) continue;
-    ctx.beginPath(); ctx.moveTo(lm[a].x, lm[a].y); ctx.lineTo(lm[b].x, lm[b].y);
-    ctx.strokeStyle = '#1c2128'; ctx.lineWidth = 9; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(lm[a].x, lm[a].y); ctx.lineTo(lm[b].x, lm[b].y);
-    ctx.strokeStyle = '#30363d'; ctx.lineWidth = 5; ctx.stroke();
-  }
-  for (var name in lm) {
-    var pt = lm[name], color = jColors[name] || '#58a6ff', sel = (name === selectedJoint), r = sel ? 12 : 8;
-    ctx.beginPath(); ctx.arc(pt.x, pt.y, r + 5, 0, Math.PI * 2);
-    ctx.fillStyle = color + '28'; ctx.fill();
-    ctx.beginPath(); ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
-    ctx.fillStyle = sel ? '#ffffff' : color; ctx.fill();
-    if (sel) { ctx.beginPath(); ctx.arc(pt.x, pt.y, r+2, 0, Math.PI*2); ctx.strokeStyle=color; ctx.lineWidth=2.5; ctx.stroke(); }
-  }
-  for (var i = 0; i < ANGLE_MAP.length; i++) {
-    var ak = ANGLE_MAP[i][0], jn = ANGLE_MAP[i][1];
-    if (angles[ak] == null || !lm[jn]) continue;
-    var val = angles[ak].toFixed(0) + ' deg', color = getColor(ak, angles[ak]);
-    var x = lm[jn].x + 14, y = lm[jn].y - 6;
-    ctx.font = 'bold 11px Arial';
-    var tw = ctx.measureText(val).width + 10;
-    ctx.fillStyle = 'rgba(13,17,23,0.82)'; ctx.beginPath();
-    if (ctx.roundRect) { ctx.roundRect(x-4, y-13, tw, 18, 4); } else { ctx.rect(x-4, y-13, tw, 18); }
-    ctx.fill(); ctx.fillStyle = color; ctx.fillText(val, x, y);
-  }
-  var html = '';
-  for (var i = 0; i < ANGLE_MAP.length; i++) {
-    var ak = ANGLE_MAP[i][0], val = angles[ak];
-    if (val == null) continue;
-    var color = getColor(ak, val);
-    var range = RANGES[ak] ? RANGES[ak][0]+'-'+RANGES[ak][1]+' deg' : 'N/A';
-    var label = ak.replace('_angle','').replace(/_/g,' ');
-    html += '<div class="angle-row"><span class="angle-name">'+label+'</span>'
-          + '<span class="angle-val" style="color:'+color+'">'+val.toFixed(0)+' deg</span>'
-          + '<div class="angle-ideal">ideal: '+range+'</div></div>';
-  }
-  angleList.innerHTML = html;
+
+  // Click on SVG background deselects
+  var svg = document.getElementById('cpw_svg');
+  if (svg) svg.onclick = function(e) {
+    if (e.target === svg || e.target.tagName === 'line') { cpwDesel(); cpwReset(); }
+  };
 }
-slider.addEventListener('input', function() {
-  var idx = parseInt(slider.value);
-  fcur.textContent = 'Frame ' + idx; draw(idx);
-});
-canvas.addEventListener('click', function(e) {
-  var rect = canvas.getBoundingClientRect();
-  var scaleX = canvas.width / rect.width, scaleY = canvas.height / rect.height;
-  var mx = (e.clientX - rect.left) * scaleX, my = (e.clientY - rect.top) * scaleY;
-  var frame = DATA[parseInt(slider.value)];
-  if (!frame || !frame.landmarks) return;
-  var W = canvas.width, H = canvas.height;
-  var lm = scaleLandmarks(frame.landmarks, W, H);
-  var closest = null, minDist = 30;
-  for (var name in lm) {
-    var dx = lm[name].x - mx, dy = lm[name].y - my;
-    var dist = Math.sqrt(dx*dx + dy*dy);
-    if (dist < minDist) { minDist = dist; closest = name; }
-  }
-  selectedJoint = closest;
-  if (closest) {
-    var match = null;
-    for (var i = 0; i < ANGLE_MAP.length; i++) { if (ANGLE_MAP[i][1] === closest) { match = ANGLE_MAP[i]; break; } }
-    var angles = frame.angles || {};
-    if (match) {
-      var ak = match[0], val = angles[ak];
-      var color = val != null ? getColor(ak, val) : '#58a6ff';
-      var status = val != null ? getStatus(ak, val) : 'No data';
-      var range = RANGES[ak] ? RANGES[ak][0]+'-'+RANGES[ak][1]+' deg' : 'N/A';
-      var sc = status === 'Ideal' ? '#3fb950' : status === 'Slightly off' ? '#d29922' : '#f85149';
-      clickPanel.innerHTML = '<p style="font-size:11px;font-weight:bold;color:#58a6ff;margin:0 0 6px">'
-        +closest.replace(/_/g,' ').toUpperCase()+'</p>'
-        +'<p style="font-size:26px;font-weight:bold;color:'+color+';margin:0 0 2px">'
-        +(val!=null?val.toFixed(1)+' deg':'N/A')+'</p>'
-        +'<p style="font-size:10px;color:#8b949e;margin:0 0 6px">ideal: '+range+'</p>'
-        +'<p style="font-size:13px;font-weight:bold;color:'+sc+';margin:0">'+status+'</p>';
-    } else {
-      clickPanel.innerHTML = '<p style="font-size:11px;font-weight:bold;color:#58a6ff;margin:0 0 4px">'
-        +closest.replace(/_/g,' ').toUpperCase()+'</p>'
-        +'<p style="font-size:11px;color:#8b949e;margin:0">Position tracked</p>';
-    }
-  }
-  draw(parseInt(slider.value));
-});
-draw(0);
+
+// Run immediately AND after a short delay (handles Gradio async render)
+cpwInit();
+setTimeout(cpwInit, 300);
+setTimeout(cpwInit, 800);
 </script>
-</body>
-</html>"""
-
+"""
     import base64
-    encoded  = base64.b64encode(html_page.encode('utf-8')).decode('utf-8')
+    encoded  = base64.b64encode(html.encode('utf-8')).decode('utf-8')
     data_url = f"data:text/html;base64,{encoded}"
-    return f'<iframe src="{data_url}" width="100%" height="580px" style="border:none; border-radius:12px;"></iframe>'
-
+    return f'<iframe src="{data_url}" width="100%" height="620px" style="border:none; border-radius:12px;"></iframe>'
 
 # ── MAIN segment_player (original features preserved + stick figure + widget added) ──
 def segment_player(video_path, click_coords, shot_type=None, progress=gr.Progress()):
@@ -909,7 +1125,7 @@ with gr.Blocks() as demo:
                     out_isolated = gr.Video(label="Isolated Player (Cutout)")
                     out_stick    = gr.Video(label="Stick Figure (Pose)")
                 # ── NEW: interactive widget ──
-                out_interactive = gr.HTML(label="Interactive Pose Analysis")
+                out_interactive = gr.HTML(label="Interactive Pose Analysis", sanitize_html=False)
                 out_comparison  = gr.Video(label="Technical Comparison (Side-by-Side)")
                 out_json        = gr.File(label="Joint Angle Data (JSON)")
 
