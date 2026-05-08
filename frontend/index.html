@@ -1216,44 +1216,36 @@
     progressLog.innerHTML = '';
     log('Launching the full analysis workspace...','acid2');
 
-    const popup = window.open('', 'AthletiQAnalysis', 'width=1200,height=900');
-    if (!popup) {
-      log('Please allow popups for this site and try again.','fire');
-      analyseBtn.disabled = false;
-      if (openAnalyzerBtn) openAnalyzerBtn.disabled = false;
-      analyseBtn.textContent = '⚡ ANALYSE SHOT';
-      return;
-    }
-
     try {
       let videoParam = '';
       if (currentFile) {
-        log(`Preparing ${currentFile.name} for the analysis workspace...`, 'acid2');
+        log(`Uploading ${currentFile.name}...`, 'acid2');
         const formData = new FormData();
         formData.append('video', currentFile);
-        const uploadRes = await fetch('/run-analysis', { method: 'POST', body: formData });
+        // Use /api/upload instead of /run-analysis to avoid redundant heavy processing
+        const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
         const uploadBody = await uploadRes.json();
         if (uploadBody.success && uploadBody.video_path) {
            videoParam = `?video=${encodeURIComponent(uploadBody.video_path)}`;
         }
       }
 
-      const res = await fetch(`/launch-dashboard${videoParam}`);
-      if (!res.ok) {
-        log('Unable to start analysis window.','fire');
-        throw new Error('Launch request failed');
-      }
+      let url = '/launch-dashboard?';
+      if (videoParam) url += videoParam.substring(1) + '&';
+      if (appState.userId) url += `user_id=${appState.userId}`;
+      
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Launch request failed');
       const body = await res.json();
-      if (!body.success) {
-        log(body.message || 'Failed to launch dashboard.','fire');
-        throw new Error('Launch failed');
-      }
+      if (!body.success) throw new Error(body.message || 'Launch failed');
       
       log('Redirecting to analysis workspace...','acid');
-      // REDIRECT INSTEAD OF POPUP
       window.location.href = body.url;
     } catch (err) {
-      log('Could not connect to analysis workspace. Please ensure the backend is running.','fire');
+      log('Could not connect to analysis workspace: ' + err.message, 'fire');
+      analyseBtn.disabled = false;
+      if (openAnalyzerBtn) openAnalyzerBtn.disabled = false;
+      analyseBtn.textContent = '⚡ ANALYSE SHOT';
     }
 
     analyseBtn.disabled = false;

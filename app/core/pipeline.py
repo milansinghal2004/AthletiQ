@@ -4,7 +4,8 @@ import torch
 import numpy as np
 import imageio
 import cv2
-from app.config import OUTPUTS_DIR, DEVICE
+import uuid
+from app.config import PROJECT_ROOT, OUTPUTS_DIR, DEVICE, TEMP_DIR
 from app.services.video_engine import convert_to_mp4, extract_frames
 from app.services.ai_models import model_manager
 from app.services.analysis_engine import run_sync_logic
@@ -31,9 +32,17 @@ class AthletiQPipeline:
             if not video_path or not click_coords:
                 return None, "Missing inputs"
 
+            # Create unique ID for this session
+            session_id = str(uuid.uuid4())[:8]
+            print(f"[Pipeline] Starting analysis {session_id} for video: {video_path}")
+
             # 1. Prepare Video & Frames
             playable_path = convert_to_mp4(video_path)
-            first_frame, _ = extract_frames(playable_path)
+            
+            # Use a unique frames directory for this session to avoid Windows file locks
+            session_temp_dir = os.path.join(TEMP_DIR, f"temp_frames_{session_id}")
+            print(f"[Pipeline] Extracting frames to: {session_temp_dir}")
+            first_frame, _ = extract_frames(playable_path, dir_path=session_temp_dir)
 
             # 2. SAM2 Propagation
             if DEVICE == "cuda":
@@ -41,9 +50,12 @@ class AthletiQPipeline:
             else:
                 autocast_ctx = torch.inference_mode()
 
-            from app.config import TEMP_DIR
+            # Normalize path for SAM2 (Windows compatibility)
+            norm_temp_dir = os.path.abspath(session_temp_dir).replace("\\", "/")
+            
             with torch.inference_mode(), autocast_ctx:
-                inference_state = self.mm.predictor.init_state(video_path=TEMP_DIR)
+                print(f"[Pipeline] SAM2 init_state on: {norm_temp_dir}")
+                inference_state = self.mm.predictor.init_state(video_path=norm_temp_dir)
                 self.mm.predictor.reset_state(inference_state)
                 
                 points = np.array([[click_coords[0], click_coords[1]]], dtype=np.float32)
@@ -70,7 +82,8 @@ class AthletiQPipeline:
                 start_idx, end_idx = min(tracked_indices), max(tracked_indices)
 
             # 3. Isolated Player Video Generation
-            out_isolated_path = os.path.join(OUTPUTS_DIR, "output_segmented.mp4")
+            out_isolated_path = os.path.join(OUTPUTS_DIR, f"isolated_{session_id}.mp4")
+            print(f"[Pipeline] Generating isolated player video: {out_isolated_path}")
             cap = cv2.VideoCapture(playable_path)
             fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
             writer = imageio.get_writer(out_isolated_path, fps=fps, codec='libx264', pixelformat='yuv420p', macro_block_size=None)
@@ -99,7 +112,8 @@ class AthletiQPipeline:
             writer.close()
 
             # 4. Biomechanics Extraction
-            bio_json_path = os.path.join(OUTPUTS_DIR, "segmented_biomechanics.json")
+            print(f"[Pipeline] Extracting biomechanics from: {out_isolated_path}")
+            bio_json_path = os.path.join(OUTPUTS_DIR, f"biomechanics_{session_id}.json")
             practice_pose_data = self.mm.extractor.extract_from_video(out_isolated_path)
             angle_results = []
             for frame in practice_pose_data["frames"]:
@@ -109,8 +123,19 @@ class AthletiQPipeline:
                 json.dump(angle_results, f, indent=4)
 
             # 5. Sync & Final Analytics
+            # Auto-detect if shot is not specified or set to "None"
+            final_shot = shot_type
+            if not final_shot or str(final_shot).lower() == "none":
+                print("[Pipeline] Auto-detecting shot type...")
+                final_shot, _ = self.auto_detect_shot(video_path)
+            
+            # Map raw shot type (e.g. 'cover') to pretty label (e.g. 'Cover Drive') if needed
+            from app.config import SHOT_LABEL_MAP
+            final_shot = SHOT_LABEL_MAP.get(str(final_shot).lower(), final_shot)
+
+            print(f"[Pipeline] Running sync logic for shot: {final_shot}")
             sync_video, feedback, plots = run_sync_logic(
-                practice_pose_data, shot_type, out_isolated_path, 
+                practice_pose_data, final_shot, out_isolated_path, 
                 self.mm.extractor, self.mm.sync_engine, progress_callback=progress_callback
             )
 
@@ -121,11 +146,22 @@ class AthletiQPipeline:
                 "biomechanics_json": bio_json_path,
                 "sync_video": sync_video,
                 "feedback": feedback,
-                "plots": plots
+                "plots": plots,
+                "shot_type": final_shot
             }, None
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"\033[91m[Pipeline Error] {error_details}\033[0m")
             if DEVICE == "cuda": torch.cuda.empty_cache()
-            return None, str(e)
+            # Cleanup session temp dir
+            if 'session_temp_dir' in locals() and os.path.exists(session_temp_dir):
+                import shutil
+                try:
+                    shutil.rmtree(session_temp_dir)
+                except:
+                    pass
+            return None, f"Error: {str(e)}"
 
 # Singleton instance
 pipeline = AthletiQPipeline()

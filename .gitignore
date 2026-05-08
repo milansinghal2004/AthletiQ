@@ -9,6 +9,7 @@ ENV/
 # Project Specific - Data & Outputs (Production Rule: No inputs/outputs on GitHub)
 outputs/
 temp_video_frames/
+temp_frames_*/
 # assets/references/*.mp4
 assets/references/*.avi
 # assets/references/angles/*.json

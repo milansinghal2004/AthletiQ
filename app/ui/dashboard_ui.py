@@ -19,27 +19,6 @@ def create_ui_layout():
                 out_comparison = gr.Video(label="Technical Comparison (Side-by-Side)")
                 out_json = gr.File(label="Joint Angle Data (JSON)")
 
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown("### 📈 Biomechanical Angle Trends")
-                with gr.Tabs():
-                    with gr.Tab("Elbows"):
-                        plot_l_elbow = gr.Plot(label="Left Elbow")
-                        plot_r_elbow = gr.Plot(label="Right Elbow")
-                    with gr.Tab("Knees"):
-                        plot_l_knee = gr.Plot(label="Left Knee")
-                        plot_r_knee = gr.Plot(label="Right Knee")
-                    with gr.Tab("Hips"):
-                        plot_l_hip = gr.Plot(label="Left Hip")
-                        plot_r_hip = gr.Plot(label="Right Hip")
-
-        with gr.Accordion("ℹ️ How to read these charts?", open=False):
-            gr.Markdown("""
-            - **Blue Line**: Your technique.
-            - **Green Shaded Area**: The Professional 'Ideal' Zone (IQR).
-            - **Dashed Red Line**: The moment of impact (Strike).
-            - **Goal**: Keep your blue line within or close to the green corridor during the strike phase.
-            """)
 
     # Shared States
     clean_img_state = gr.State()
@@ -55,12 +34,6 @@ def create_ui_layout():
         "out_isolated": out_isolated,
         "out_comparison": out_comparison,
         "out_json": out_json,
-        "plot_l_elbow": plot_l_elbow,
-        "plot_r_elbow": plot_r_elbow,
-        "plot_l_knee": plot_l_knee,
-        "plot_r_knee": plot_r_knee,
-        "plot_l_hip": plot_l_hip,
-        "plot_r_hip": plot_r_hip,
         "clean_img_state": clean_img_state,
         "click_coord_state": click_coord_state,
         "user_id_state": user_id_state

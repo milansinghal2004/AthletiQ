@@ -4,12 +4,7 @@ from app.core.pipeline import pipeline
 from app.services.video_engine import convert_to_mp4, extract_frames
 
 # Mappings for UI display
-SHOT_LABEL_MAP = {
-    "cover": "Cover Drive", "defense": "Defense", "flick": "Flick",
-    "hook": "Hook", "late_cut": "Late Cut", "lofted": "Lofted Shot",
-    "pull": "Pull Shot", "square_cut": "Square Cut",
-    "straight": "Straight Drive", "sweep": "Sweep Shot"
-}
+from app.config import SHOT_LABEL_MAP
 
 def handle_video_upload(video_path):
     if not video_path:
@@ -32,12 +27,13 @@ def handle_point_selection(img, evt: gr.SelectData):
     return evt.index, points_img
 
 def run_full_analysis(video_path, click_coords, shot_type, user_id, progress=gr.Progress()):
+    print(f"\033[94m[Analysis] starting with User ID: {user_id} (type: {type(user_id)})\033[0m")
     def pg_callback(curr, msg): progress(curr, desc=msg)
     
     result, error = pipeline.process(video_path, click_coords, shot_type, progress_callback=pg_callback)
     
     if error:
-        return [None]*3 + [f"Error: {error}"] + [None]*6
+        return [None]*3 + [f"Error: {error}"] + [None]*12
 
     # Save to user profile if user_id exists
     if user_id:
@@ -46,8 +42,9 @@ def run_full_analysis(video_path, click_coords, shot_type, user_id, progress=gr.
             import requests
             import re
             
-            # Extract score from feedback string (e.g., "Score: 85.4%")
-            score_match = re.search(r"(\d+\.\d+)%", result["feedback"])
+            # Extract score from feedback string (matches "Overall Score: 85" or "Score: 85.4%")
+            import re
+            score_match = re.search(r"(?:Overall\s+)?Score:\s*(\d+(?:\.\d+)?)", result["feedback"], re.IGNORECASE)
             score = float(score_match.group(1)) if score_match else 0.0
             
             payload = {
@@ -71,8 +68,7 @@ def run_full_analysis(video_path, click_coords, shot_type, user_id, progress=gr.
         result["isolated_video"],
         result["biomechanics_json"],
         result["sync_video"],
-        result["feedback"],
-        *result["plots"]
+        result["feedback"]
     ]
 
 def bind_events(components):
@@ -93,9 +89,6 @@ def bind_events(components):
         inputs=[components["video_input"], components["click_coord_state"], components["shot_select"], components["user_id_state"]], 
         outputs=[
             components["out_isolated"], components["out_json"], components["out_comparison"], 
-            components["out_score"], 
-            components["plot_l_elbow"], components["plot_r_elbow"], 
-            components["plot_l_knee"], components["plot_r_knee"], 
-            components["plot_l_hip"], components["plot_r_hip"]
+            components["out_score"]
         ]
     )

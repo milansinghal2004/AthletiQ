@@ -31,3 +31,17 @@ def setup_hardware():
 # Ensure directories exist
 os.makedirs(OUTPUTS_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)
+
+# --- Mappings ---
+SHOT_LABEL_MAP = {
+    "cover": "Cover Drive", 
+    "defense": "Defense", 
+    "flick": "Flick",
+    "hook": "Hook", 
+    "late_cut": "Late Cut", 
+    "lofted": "Lofted Shot",
+    "pull": "Pull Shot", 
+    "square_cut": "Square Cut",
+    "straight": "Straight Drive", 
+    "sweep": "Sweep Shot"
+}

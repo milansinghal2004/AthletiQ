@@ -34,6 +34,7 @@ def start_app():
         def on_load(request: gr.Request):
             video_path = request.query_params.get("video")
             user_id = request.query_params.get("user_id")
+            print(f"\033[94m[Dashboard] Session Load - Video: {video_path}, User ID: {user_id}\033[0m")
             
             f1, f2, v, s = [None] * 4
             if video_path and os.path.exists(video_path):
@@ -54,16 +55,25 @@ def start_app():
 
     # 5. Launch
     print("AthletiQ is ready.")
-    demo.launch(
-        server_name="127.0.0.1",
-        server_port=int(os.environ.get("GRADIO_PORT", 7860)),
-        theme=get_athletiq_theme(),
-        css=get_athletiq_css(),
-        allowed_paths=[
-            os.path.join(PROJECT_ROOT, "outputs"), 
-            os.path.join(PROJECT_ROOT, "frontend", "uploads"),
-        ]
-    )
+    port = int(os.environ.get("GRADIO_SERVER_PORT", 7860))
+    
+    # Try to launch, if port is taken, try next ones
+    for attempt in range(10):
+        try:
+            demo.launch(
+                server_name="127.0.0.1",
+                server_port=port + attempt,
+                theme=get_athletiq_theme(),
+                css=get_athletiq_css(),
+                allowed_paths=[
+                    os.path.join(PROJECT_ROOT, "outputs"), 
+                    os.path.join(PROJECT_ROOT, "frontend", "uploads"),
+                ]
+            )
+            break
+        except OSError:
+            print(f"Port {port + attempt} is busy, trying {port + attempt + 1}...")
+            continue
 
 if __name__ == "__main__":
     start_app()

@@ -5,6 +5,7 @@ import imageio
 import numpy as np
 from app.config import PROJECT_ROOT, REFERENCES_DB_PATH, OUTPUTS_DIR
 from app.plotting_utils import generate_biomechanic_plot
+from app.services.llm_engine import llm_engine
 
 def load_references():
     if os.path.exists(REFERENCES_DB_PATH):
@@ -106,7 +107,14 @@ def run_sync_logic(practice_data, shot_type, practice_video, extractor, sync_eng
     mapping = {p: r for p, r in alignment_path}
 
     # --- Scoring ---
-    joint_weights = {"left_elbow": 1.5, "right_elbow": 1.5, "left_shoulder": 1.2, "right_shoulder": 1.2, "left_hip": 1.0, "right_hip": 1.0, "left_knee": 0.8, "right_knee": 0.8}
+    joint_weights = {
+        "left_elbow": 1.5, "right_elbow": 1.5, 
+        "left_shoulder": 1.2, "right_shoulder": 1.2, 
+        "left_hip": 1.0, "right_hip": 1.0, 
+        "left_knee": 0.8, "right_knee": 0.8,
+        "left_wrist": 0.5, "right_wrist": 0.5,
+        "left_ankle": 0.5, "right_ankle": 0.5
+    }
     total_score, total_weight = 0, 0
     for p_idx, r_idx in mapping.items():
         if p_idx < len(practice_data["frames"]) and r_idx < len(stats_data["frames"]):
@@ -127,9 +135,67 @@ def run_sync_logic(practice_data, shot_type, practice_video, extractor, sync_eng
     final_percentage = (total_score / total_weight) if total_weight > 0 else 0
     feedback_str = f"### Overall Accuracy Score: {final_percentage:.1f}%\nBiomechanical sync complete."
 
+    # --- LLM Feedback Generation ---
+    # Analyze status specifically at the Strike phase for the most impactful feedback
+    joint_status_at_strike = {}
+    if p_phases and 'strike' in p_phases:
+        p_strike_idx = p_phases['strike']
+        r_strike_idx = mapping.get(p_strike_idx)
+        
+        if r_strike_idx is not None and p_strike_idx < len(practice_data["frames"]) and r_strike_idx < len(stats_data["frames"]):
+            p_angles = practice_data["frames"][p_strike_idx].get("angles", {})
+            stat_frame = stats_data["frames"][r_strike_idx]
+            q1_a, q3_a = stat_frame.get("q1_angles", {}), stat_frame.get("q3_angles", {})
+            min_a_ref, max_a_ref = stat_frame.get("min_angles", {}), stat_frame.get("max_angles", {})
+            
+            for joint in joint_weights.keys():
+                if joint in p_angles:
+                    val = p_angles[joint]
+                    
+                    if joint in q1_a and joint in q3_a:
+                        q1, q3 = q1_a[joint], q3_a[joint]
+                        mn, mx = min_a_ref.get(joint, q1-10), max_a_ref.get(joint, q3+10)
+                        
+                        if q1 <= val <= q3:
+                            status = "Ideal"
+                        elif mn <= val <= mx:
+                            status = "Slightly Off"
+                        else:
+                            status = "Needs Work"
+                        
+                        joint_status_at_strike[joint] = {
+                            "status": status,
+                            "angle": f"{val:.1f} deg",
+                            "ideal_range": f"{q1:.0f}-{q3:.0f} deg"
+                        }
+                    else:
+                        # Fallback for joints without statistical data
+                        joint_status_at_strike[joint] = {
+                            "status": "N/A (No Stats)",
+                            "angle": f"{val:.1f} deg",
+                            "ideal_range": "N/A"
+                        }
+
+    # Call LLM Engine
+    print("\033[94m[LLM] Generating specialized biomechanical report with full trend analysis...\033[0m")
+    llm_report_text = llm_engine.generate_feedback(
+        practice_data["frames"], 
+        stats_data["frames"], 
+        shot_type, 
+        p_phases, 
+        r_phases
+    )
+    
+    # The LLM now returns a formatted string as per the new system prompt
+    feedback_str = f"### Biomechanical Analysis Report\n\n{llm_report_text}"
+
     # --- Plots ---
     plots = []
-    joints_to_plot = ["left_elbow", "right_elbow", "left_knee", "right_knee", "left_hip", "right_hip"]
+    joints_to_plot = [
+        "left_elbow", "right_elbow", "left_knee", "right_knee", 
+        "left_hip", "right_hip", "left_shoulder", "right_shoulder",
+        "left_wrist", "right_wrist", "left_ankle", "right_ankle"
+    ]
     for joint in joints_to_plot:
         p_vals, q1_vals, q3_vals, mean_vals = [], [], [], []
         for p_idx, r_idx in mapping.items():

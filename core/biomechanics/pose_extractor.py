@@ -99,7 +99,11 @@ class PoseExtractor:
         output_data = {
             "metadata": {
                 "fps": fps,
-                "joints": ["left_elbow", "right_elbow", "left_shoulder", "right_shoulder", "left_hip", "right_hip", "left_knee", "right_knee"]
+                "joints": [
+                    "left_elbow", "right_elbow", "left_shoulder", "right_shoulder", 
+                    "left_hip", "right_hip", "left_knee", "right_knee",
+                    "left_wrist", "right_wrist", "left_ankle", "right_ankle"
+                ]
             },
             "frames": []
         }
@@ -152,7 +156,9 @@ class PoseExtractor:
                             "l_wr": get_pt(15), "r_wr": get_pt(16),
                             "l_hp": get_pt(23), "r_hp": get_pt(24),
                             "l_kn": get_pt(25), "r_kn": get_pt(26),
-                            "l_ak": get_pt(27), "r_ak": get_pt(28)
+                            "l_ak": get_pt(27), "r_ak": get_pt(28),
+                            "l_id": get_pt(19), "r_id": get_pt(20), # Index
+                            "l_fi": get_pt(31), "r_fi": get_pt(32)  # Foot Index
                         }
                         
                         frame_data["angles"] = {
@@ -163,7 +169,11 @@ class PoseExtractor:
                             "left_hip": self.calculate_angle(p["l_sh"], p["l_hp"], p["l_kn"]),
                             "right_hip": self.calculate_angle(p["r_sh"], p["r_hp"], p["r_kn"]),
                             "left_knee": self.calculate_angle(p["l_hp"], p["l_kn"], p["l_ak"]),
-                            "right_knee": self.calculate_angle(p["r_hp"], p["r_kn"], p["r_ak"])
+                            "right_knee": self.calculate_angle(p["r_hp"], p["r_kn"], p["r_ak"]),
+                            "left_wrist": self.calculate_angle(p["l_el"], p["l_wr"], p["l_id"]),
+                            "right_wrist": self.calculate_angle(p["r_el"], p["r_wr"], p["r_id"]),
+                            "left_ankle": self.calculate_angle(p["l_kn"], p["l_ak"], p["l_fi"]),
+                            "right_ankle": self.calculate_angle(p["r_kn"], p["r_ak"], p["r_fi"])
                         }
                     except Exception:
                         pass

@@ -24,7 +24,7 @@ pool.on('error', (err) => {
 });
 
 const PORT = process.env.PORT || 3000;
-const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 7860;
+const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 7861;
 let dashboardProcess = null;
 
 app.use(cors({
@@ -70,6 +70,12 @@ async function ensureTables() {
       );
     `);
 
+    await client.query(`
+      ALTER TABLE analysis_history
+      ADD COLUMN IF NOT EXISTS accuracy_score FLOAT,
+      ADD COLUMN IF NOT EXISTS video_path TEXT;
+    `);
+
     await client.query(
       `INSERT INTO users (username, password, email, is_admin)
        VALUES ($1, $2, $3, true)
@@ -94,7 +100,10 @@ app.post('/run-analysis', upload.single('video'), async (req, res) => {
 
   const videoPath = path.resolve(req.file.path);
   const runnerPath = path.join(__dirname, 'analysis_runner.py');
-  const pythonExecutable = process.env.PYTHON || 'python';
+  
+  // Prioritize virtual environment python
+  const venvPath = path.join(__dirname, '..', '..', '.venv', 'Scripts', 'python.exe');
+  const pythonExecutable = fs.existsSync(venvPath) ? venvPath : (process.env.PYTHON || 'python');
   const args = [runnerPath, '--video', videoPath, '--shot', shot_type, '--clickx', click_x.toString(), '--clicky', click_y.toString()];
   if (userId) args.push('--user_id', userId.toString());
 
@@ -117,14 +126,37 @@ app.post('/run-analysis', upload.single('video'), async (req, res) => {
       entryText = `Video: ${req.file.originalname} | Shot: ${shot_type} | Error: ${errorOutput || 'Analysis process failed.'}`;
     } else {
       try {
-        result = JSON.parse(output.trim());
+        // Ultra-robust JSON extraction: try parsing from every '{' in reverse order
+        const braceIndices = [];
+        for (let i = 0; i < output.length; i++) {
+          if (output[i] === '{') braceIndices.push(i);
+        }
+        
+        for (let i = braceIndices.length - 1; i >= 0; i--) {
+          try {
+            const potentialJson = output.substring(braceIndices[i]).trim();
+            // Find the corresponding closing brace or just try parsing to the end
+            // JSON.parse is smart enough to ignore trailing whitespace
+            result = JSON.parse(potentialJson);
+            if (result && typeof result === 'object' && result.success !== undefined) {
+              break; 
+            }
+          } catch (e) { /* ignore and try next brace */ }
+        }
+
+        if (!result) throw new Error('No valid JSON output found in runner response');
+
         if (result.success) {
-          entryText = `Video: ${req.file.originalname} | Shot: ${shot_type} | Result: ${result.summary || result.score || 'Analysis complete'}`;
+          // Robustly extract score from summary (matches "Overall Score: 85" or "Score: 85.4%")
+          const scoreMatch = result.summary ? result.summary.match(/(?:Overall\s+)?Score:\s*(\d+(?:\.\d+)?)/i) : null;
+          const score = scoreMatch ? parseFloat(scoreMatch[1]) : 0;
+          entryText = `Shot: ${result.shot_type || shot_type} | Accuracy: ${score}%`;
         } else {
           entryText = `Video: ${req.file.originalname} | Shot: ${shot_type} | Error: ${result.error || 'Analysis failed'}`;
         }
       } catch (e) {
-        console.error('Failed to parse analysis runner output:', output, e);
+        console.error('Failed to parse analysis runner output. Raw output:', output);
+        console.error('Parsing error:', e);
         entryText = `Video: ${req.file.originalname} | Shot: ${shot_type} | Error: Could not parse analysis result.`;
       }
     }
@@ -379,7 +411,7 @@ app.get('/launch-dashboard', async (req, res) => {
 
   dashboardProcess = spawn(pythonExecutable, [dashboardScript], {
     cwd: path.join(__dirname, '..', 'app'),
-    env: { ...process.env, GRADIO_PORT: DASHBOARD_PORT.toString() },
+    env: { ...process.env, GRADIO_SERVER_PORT: DASHBOARD_PORT.toString() },
     stdio: ['pipe', 'pipe', 'pipe'],
     detached: false,
     shell: true
@@ -398,23 +430,38 @@ app.get('/launch-dashboard', async (req, res) => {
     console.error('Dashboard error:', msg.trim());
     launchError = msg.trim();
   });
-  dashboardProcess.on('error', (err) => {
-    console.error('Dashboard spawn error:', err);
-    dashboardProcess = null;
-    launchError = err.message;
-  });
-  dashboardProcess.on('exit', (code) => {
-    console.log(`Dashboard process exited with code ${code}`);
-    dashboardProcess = null;
-  });
-
-  const ready = await waitForDashboard(DASHBOARD_PORT, 15000);
+  const ready = await waitForDashboard(DASHBOARD_PORT, 20000);
   if (!ready && launchError) {
     return res.status(500).json({ success: false, message: 'Failed to start dashboard', error: launchError });
   }
 
   return res.json({ success: true, url: urlWithParams });
 });
+
+// --- BACKGROUND WARM START ---
+function warmStartDashboard() {
+  const dashboardScript = path.join(__dirname, '..', 'app', 'main.py');
+  const venvPath = path.join(__dirname, '..', '..', '.venv', 'Scripts', 'python.exe');
+  const pythonExecutable = fs.existsSync(venvPath) ? venvPath : (process.env.PYTHON || 'python');
+  
+  if (dashboardProcess && !dashboardProcess.killed) return;
+
+  console.log('--- Dashboard background warm-start triggered ---');
+  dashboardProcess = spawn(pythonExecutable, [dashboardScript], {
+    cwd: path.join(__dirname, '..', 'app'),
+    env: { ...process.env, GRADIO_SERVER_PORT: DASHBOARD_PORT.toString() },
+    stdio: ['pipe', 'pipe', 'pipe'],
+    shell: true
+  });
+  
+  dashboardProcess.stdout.on('data', (chunk) => {
+    const msg = chunk.toString();
+    if (msg.includes('AthletiQ is ready')) console.log('Dashboard is WARM and READY.');
+  });
+}
+
+// Trigger warm-start on server launch
+setTimeout(warmStartDashboard, 1000);
 
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`Frontend server running on http://127.0.0.1:${PORT}`);

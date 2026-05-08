@@ -4,18 +4,27 @@ import shutil
 import imageio
 from app.config import PROJECT_ROOT, OUTPUTS_DIR, TEMP_DIR
 
-def clear_temp(dir_name=TEMP_DIR):
-    if os.path.exists(dir_name):
-        shutil.rmtree(dir_name)
-    os.makedirs(dir_name, exist_ok=True)
+def clear_temp(dir_path=TEMP_DIR):
+    """Cleans the specified temporary directory."""
+    if os.path.exists(dir_path):
+        import shutil
+        shutil.rmtree(dir_path)
+    os.makedirs(dir_path, exist_ok=True)
 
 def convert_to_mp4(input_path):
     """Transcodes videos to a browser-compatible H.264 MP4 format."""
     if not input_path:
         return input_path
     
-    output_path = os.path.join(OUTPUTS_DIR, "playable_input.mp4")
+    # Use a specific name for the playable version to avoid overwriting and enable caching
+    base_name = os.path.basename(input_path).split('.')[0]
+    output_path = os.path.join(OUTPUTS_DIR, f"playable_{base_name}.mp4")
     
+    # If already transcoded, skip
+    if os.path.exists(output_path):
+        print(f"Using cached playable version: {output_path}")
+        return output_path
+
     print(f"Transcoding {input_path} for browser compatibility...")
     try:
         cap = cv2.VideoCapture(input_path)
@@ -39,9 +48,9 @@ def convert_to_mp4(input_path):
         print(f"Warning: Transcoding failed ({e}). Using original.")
         return input_path
 
-def extract_frames(video_path, max_dim=640):
-    """Extracts frames from video into the temp directory."""
-    clear_temp()
+def extract_frames(video_path, max_dim=640, dir_path=TEMP_DIR):
+    """Extracts frames from video into the specified directory."""
+    clear_temp(dir_path)
     cap = cv2.VideoCapture(video_path)
     idx = 0
     first_frame = None
@@ -58,7 +67,7 @@ def extract_frames(video_path, max_dim=640):
         if idx == 0:
             first_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
-        frame_path = os.path.join(TEMP_DIR, f"{idx:05d}.jpg")
+        frame_path = os.path.join(dir_path, f"{idx:05d}.jpg")
         cv2.imwrite(frame_path, frame)
         idx += 1
         
