@@ -10,7 +10,7 @@ const { Pool } = require('pg');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-const DB_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_zFYjt0hdEXN9@ep-raspy-snow-anhp06i7-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require';
+const DB_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_zFYjt0hdEXN9@ep-raspy-snow-anhp06i7-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=verify-full';
 const pool = new Pool({
   connectionString: DB_URL,
   max: 1,
@@ -392,12 +392,9 @@ function waitForDashboard(port, timeoutMs = 15000) {
 
 app.get('/launch-dashboard', async (req, res) => {
   const { video, user_id } = req.query;
-  console.log('--- GET /launch-dashboard hit ---');
-  console.log('Video Path:', video);
-  console.log('User ID:', user_id);
-  
   const baseUrl = `http://127.0.0.1:${DASHBOARD_PORT}`;
-  let urlWithParams = video ? `${baseUrl}/?video=${encodeURIComponent(path.resolve(video))}` : baseUrl;
+  const normalizedVideo = video ? path.normalize(path.resolve(video)) : null;
+  let urlWithParams = normalizedVideo ? `${baseUrl}/?video=${encodeURIComponent(normalizedVideo)}` : baseUrl;
   if (user_id) {
     urlWithParams += (urlWithParams.includes('?') ? '&' : '/?') + `user_id=${user_id}`;
   }
@@ -437,7 +434,7 @@ app.get('/launch-dashboard', async (req, res) => {
     console.error('Dashboard error:', msg.trim());
     launchError = msg.trim();
   });
-  const ready = await waitForDashboard(DASHBOARD_PORT, 20000);
+  const ready = await waitForDashboard(DASHBOARD_PORT, 30000);
   if (!ready && launchError) {
     return res.status(500).json({ success: false, message: 'Failed to start dashboard', error: launchError });
   }

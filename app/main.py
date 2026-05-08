@@ -24,6 +24,7 @@ def start_app():
     # 3. Create UI & Bind Logic inside the context
     print("Initializing Models...")
     with gr.Blocks() as demo:
+        demo.queue()
         # Create Layout
         components = create_ui_layout()
         
@@ -34,6 +35,10 @@ def start_app():
         def on_load(request: gr.Request):
             video_path = request.query_params.get("video")
             user_id = request.query_params.get("user_id")
+            
+            if video_path:
+                video_path = os.path.normpath(video_path.strip())
+            
             print(f"\033[94m[Dashboard] Session Load - Video: {video_path}, User ID: {user_id}\033[0m")
             
             f1, f2, v, s = [None] * 4
@@ -65,6 +70,7 @@ def start_app():
                 server_port=port + attempt,
                 theme=get_athletiq_theme(),
                 css=get_athletiq_css(),
+                show_error=True,
                 allowed_paths=[
                     os.path.join(PROJECT_ROOT, "outputs"), 
                     os.path.join(PROJECT_ROOT, "frontend", "uploads"),

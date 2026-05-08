@@ -3,7 +3,7 @@ import json
 import os
 
 class LLMEngine:
-    def __init__(self, model="gemma4:31b-cloud", base_url="http://localhost:11434"):
+    def __init__(self, model="gemma4:31b-cloud", base_url="http://127.0.0.1:11434"):
         self.model = model
         self.base_url = f"{base_url}/api/generate"
 
@@ -191,7 +191,7 @@ Overall Score: 74
         }
 
         try:
-            response = requests.post(self.base_url, json=payload, timeout=60)
+            response = requests.post(self.base_url, json=payload, timeout=180)
             response.raise_for_status()
             result = response.json()
             return result.get("response", "Overall Score: 0\nImprovements Recommended: Error generating feedback.")
