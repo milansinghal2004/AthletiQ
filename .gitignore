@@ -25,3 +25,10 @@ Thumbs.db
 node_modules/
 frontend/uploads/
 frontend-react/dist/
+
+# Large model files
+models/shot_detection/*.pth
+models/sam2/checkpoints/*.pt
+outputs/
+*.mp4
+*.avi
