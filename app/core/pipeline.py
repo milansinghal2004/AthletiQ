@@ -114,7 +114,7 @@ class AthletiQPipeline:
             # 4. Biomechanics Extraction
             print(f"[Pipeline] Extracting biomechanics from: {out_isolated_path}")
             bio_json_path = os.path.join(OUTPUTS_DIR, f"biomechanics_{session_id}.json")
-            practice_pose_data = self.mm.extractor.extract_from_video(out_isolated_path)
+            practice_pose_data = self.mm.extractor.extract_from_video(out_isolated_path, progress_callback=progress_callback)
             angle_results = []
             for frame in practice_pose_data["frames"]:
                 if "angles" in frame:

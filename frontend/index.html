@@ -1139,15 +1139,23 @@
       return;
     }
 
-    table.innerHTML = history.map(item =>
-      `<div style="display:grid;grid-template-columns:1fr auto;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08);">
+    table.innerHTML = history.map(item => {
+      // Robustly handle UTC strings from PostgreSQL
+      let date = new Date(item.created_at);
+      if (typeof item.created_at === 'string' && !item.created_at.includes('T') && !item.created_at.includes('Z')) {
+        // If it's a space-separated string from PG, force it to be treated as UTC
+        date = new Date(item.created_at.replace(' ', 'T') + 'Z');
+      }
+      const localDateStr = date.toLocaleString();
+      
+      return `<div style="display:grid;grid-template-columns:1fr auto;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.08);">
         <div>
           <div style="font-family:'Share Tech Mono',monospace;font-size:12px;color:#fff;">${item.entry_text}</div>
-          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:6px;">${new Date(item.created_at).toLocaleString()}</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:6px;">${localDateStr}</div>
         </div>
         <button class="btn-ghost" style="align-self:start;padding:8px 12px;font-size:10px;" data-entry-id="${item.id}">Delete</button>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
   }
 
   document.getElementById('loadProfileBtn').addEventListener('click', async () => {

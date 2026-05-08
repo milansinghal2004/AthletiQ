@@ -28,7 +28,10 @@ def handle_point_selection(img, evt: gr.SelectData):
 
 def run_full_analysis(video_path, click_coords, shot_type, user_id, progress=gr.Progress()):
     print(f"\033[94m[Analysis] starting with User ID: {user_id} (type: {type(user_id)})\033[0m")
-    def pg_callback(curr, msg): progress(curr, desc=msg)
+    def pg_callback(curr, *args):
+        # Extract message from the last argument (works for both 2 and 3 arg calls)
+        msg = args[-1] if args else "Processing..."
+        progress(None, desc=msg)
     
     result, error = pipeline.process(video_path, click_coords, shot_type, progress_callback=pg_callback)
     
@@ -43,7 +46,6 @@ def run_full_analysis(video_path, click_coords, shot_type, user_id, progress=gr.
             import re
             
             # Extract score from feedback string (matches "Overall Score: 85" or "Score: 85.4%")
-            import re
             score_match = re.search(r"(?:Overall\s+)?Score:\s*(\d+(?:\.\d+)?)", result["feedback"], re.IGNORECASE)
             score = float(score_match.group(1)) if score_match else 0.0
             
