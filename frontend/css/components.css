@@ -4,15 +4,19 @@
    ============================================= */
 
 /* PIPELINE FLOW */
-.pipeline {
+.pipeline-track {
   display: grid; grid-template-columns: repeat(5, 1fr);
   gap: 0; position: relative;
 }
-.pipeline::before {
+.pipeline-track::before {
   content: ''; position: absolute;
   top: 40px; left: 40px; right: 40px; height: 1px;
   background: linear-gradient(90deg, var(--acid), var(--acid2), var(--fire));
   z-index: 0;
+  opacity: 0.6;
+}
+.pipeline-track:last-of-type::before {
+  background: linear-gradient(90deg, var(--fire), var(--acid2), var(--acid));
 }
 .pipe-step {
   position: relative; z-index: 1;
@@ -57,16 +61,7 @@
   text-transform: uppercase; text-align: center;
   color: var(--text-mid);
 }
-.pipeline2 {
-  display: grid; grid-template-columns: repeat(5, 1fr);
-  gap: 0; position: relative; margin-top: 40px;
-}
-.pipeline2::before {
-  content: ''; position: absolute;
-  top: 40px; left: 40px; right: 40px; height: 1px;
-  background: linear-gradient(90deg, var(--fire), var(--acid));
-  z-index: 0;
-}
+
 
 /* FEATURES GRID */
 .features-grid {

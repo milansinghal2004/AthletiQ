@@ -15,6 +15,13 @@
   <link rel="stylesheet" href="css/components.css">
   <script src="https://unpkg.com/@dotlottie/player-component@latest/dist/dotlottie-player.mjs" type="module"></script>
   <style>
+    /* ── Z-INDEX REFINEMENT ── */
+    nav { z-index: 20000 !important; }
+    #profileDropdown { z-index: 20002 !important; }
+    #pageBlurOverlay { z-index: 20001 !important; }
+    #loginModal { z-index: 20003 !important; }
+    #cursor, #cursorRing, #batCursor { z-index: 30000 !important; }
+
     /* ── GLOBAL THEMED SCROLLBARS ── */
     ::-webkit-scrollbar {
       width: 6px;
@@ -2145,6 +2152,24 @@
         // Login gating is disabled so the dashboard and analysis are always accessible.
       }
 
+      async function loadProfileData() {
+        if (!appState.userId) return;
+        const historyTable = document.getElementById('historyTable');
+        historyTable.innerHTML = '<div style="color:var(--acid);font-family:\'Share Tech Mono\',monospace;font-size:11px;padding:20px;text-align:center;opacity:0.6;">⟳ SYNCING WITH CLOUD...</div>';
+        
+        try {
+          const res = await fetch(`/api/history/${appState.userId}`);
+          const body = await res.json();
+          if (body.success) {
+            updateHistoryTable(body.history);
+          } else {
+            historyTable.innerHTML = '<div style="color:var(--fire);font-size:11px;padding:20px;text-align:center;">Cloud Sync Failed.</div>';
+          }
+        } catch (e) {
+          historyTable.innerHTML = '<div style="color:var(--fire);font-size:11px;padding:20px;text-align:center;">Network Error.</div>';
+        }
+      }
+
       function toggleProfileDropdown(forceState) {
         const dropdown = document.getElementById('profileDropdown');
         const blurOverlay = document.getElementById('pageBlurOverlay');
@@ -2157,7 +2182,7 @@
         }
 
         if (newState) {
-          document.getElementById('loadProfileBtn').click();
+          loadProfileData();
         }
       }
 
@@ -2459,19 +2484,7 @@
         });
       }
 
-      document.getElementById('loadProfileBtn').addEventListener('click', async () => {
-        if (!appState.userId) {
-          document.getElementById('profileInfo').textContent = 'Please login first.';
-          return;
-        }
-        const res = await fetch(`/api/history/${appState.userId}`);
-        const body = await res.json();
-        if (!body.success) {
-          document.getElementById('historyTable').innerHTML = '<div style="color:var(--fire);">Could not load history.</div>';
-          return;
-        }
-        updateHistoryTable(body.history);
-      });
+      document.getElementById('loadProfileBtn').addEventListener('click', loadProfileData);
 
       document.getElementById('historyTable').addEventListener('click', async (event) => {
         const button = event.target.closest('button[data-entry-id]');
