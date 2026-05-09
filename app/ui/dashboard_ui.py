@@ -13,14 +13,16 @@ def create_ui_layout():
                 analyze_btn = gr.Button("🚀 Run Full Shot Analysis", variant="primary")
             
             with gr.Column(scale=1):
-                gr.Markdown("### 📊 Analysis Results")
-                out_score = gr.Markdown("Score will appear here.")
-                out_isolated = gr.Video(label="Isolated Player (Cutout)")
+                gr.HTML("<div style='margin-bottom:10px;'><span style='color:#00ff88; font-weight:800; font-family:\"Rajdhani\", sans-serif; letter-spacing:2px; text-transform:uppercase; font-size:16px;'>📊 Technical Analysis HUD</span></div>")
+                out_score = gr.HTML("<div style='color:#484f58; font-style:italic;'>Analysis pending...</div>")
+                out_interactive = gr.HTML(label="Interactive Pose Analysis", sanitize_html=False)
+                with gr.Row():
+                    out_isolated = gr.Video(label="Isolated Player (Cutout)")
+                    out_stick = gr.Video(label="Stick Figure (Pose)")
                 out_comparison = gr.Video(label="Technical Comparison (Side-by-Side)")
                 out_json = gr.File(label="Joint Angle Data (JSON)")
 
-
-    # Shared States
+        # Shared States
     clean_img_state = gr.State()
     click_coord_state = gr.State()
     user_id_state = gr.State()
@@ -32,6 +34,8 @@ def create_ui_layout():
         "analyze_btn": analyze_btn,
         "out_score": out_score,
         "out_isolated": out_isolated,
+        "out_stick": out_stick,
+        "out_interactive": out_interactive,
         "out_comparison": out_comparison,
         "out_json": out_json,
         "clean_img_state": clean_img_state,

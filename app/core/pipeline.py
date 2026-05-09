@@ -6,9 +6,9 @@ import imageio
 import cv2
 import uuid
 from app.config import PROJECT_ROOT, OUTPUTS_DIR, DEVICE, TEMP_DIR
-from app.services.video_engine import convert_to_mp4, extract_frames
+from app.services.video_engine import convert_to_mp4, extract_frames, create_stick_figure_video
 from app.services.ai_models import model_manager
-from app.services.analysis_engine import run_sync_logic
+from app.services.analysis_engine import run_sync_logic, generate_interactive_widget
 
 class AthletiQPipeline:
     def __init__(self):
@@ -115,12 +115,9 @@ class AthletiQPipeline:
             print(f"[Pipeline] Extracting biomechanics from: {out_isolated_path}")
             bio_json_path = os.path.join(OUTPUTS_DIR, f"biomechanics_{session_id}.json")
             practice_pose_data = self.mm.extractor.extract_from_video(out_isolated_path, progress_callback=progress_callback)
-            angle_results = []
-            for frame in practice_pose_data["frames"]:
-                if "angles" in frame:
-                    angle_results.append({"frame": frame["frame_idx"], "time": frame["time_sec"], **frame["angles"]})
+            # Save full pose data (including landmarks) for the interactive widget
             with open(bio_json_path, "w") as f:
-                json.dump(angle_results, f, indent=4)
+                json.dump(practice_pose_data["frames"], f, indent=4)
 
             # 5. Sync & Final Analytics
             # Auto-detect if shot is not specified or set to "None"
@@ -134,19 +131,28 @@ class AthletiQPipeline:
             final_shot = SHOT_LABEL_MAP.get(str(final_shot).lower(), final_shot)
 
             print(f"[Pipeline] Running sync logic for shot: {final_shot}")
-            sync_video, feedback, plots = run_sync_logic(
+            sync_video, feedback = run_sync_logic(
                 practice_pose_data, final_shot, out_isolated_path, 
                 self.mm.extractor, self.mm.sync_engine, progress_callback=progress_callback
             )
+
+            # 6. Stick Figure Video
+            print(f"[Pipeline] Generating stick figure video...")
+            stick_video = create_stick_figure_video(playable_path, segmented_video_path=out_isolated_path, progress_callback=progress_callback)
+
+            # 7. Interactive Widget
+            print(f"[Pipeline] Generating interactive widget...")
+            interactive_widget = generate_interactive_widget(bio_json_path, final_shot)
 
             if DEVICE == "cuda": torch.cuda.empty_cache()
 
             return {
                 "isolated_video": out_isolated_path,
+                "stick_video": stick_video,
+                "interactive_widget": interactive_widget,
                 "biomechanics_json": bio_json_path,
                 "sync_video": sync_video,
                 "feedback": feedback,
-                "plots": plots,
                 "shot_type": final_shot
             }, None
         except Exception as e:

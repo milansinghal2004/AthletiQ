@@ -36,7 +36,7 @@ def run_full_analysis(video_path, click_coords, shot_type, user_id, progress=gr.
     result, error = pipeline.process(video_path, click_coords, shot_type, progress_callback=pg_callback)
     
     if error:
-        return [None]*3 + [f"Error: {error}"] + [None]*12
+        return [None]*5 + [f"Error: {error}"]
 
     # Save to user profile if user_id exists
     if user_id:
@@ -68,6 +68,8 @@ def run_full_analysis(video_path, click_coords, shot_type, user_id, progress=gr.
 
     return [
         result["isolated_video"],
+        result["stick_video"],
+        result["interactive_widget"],
         result["biomechanics_json"],
         result["sync_video"],
         result["feedback"]
@@ -90,7 +92,8 @@ def bind_events(components):
         run_full_analysis, 
         inputs=[components["video_input"], components["click_coord_state"], components["shot_select"], components["user_id_state"]], 
         outputs=[
-            components["out_isolated"], components["out_json"], components["out_comparison"], 
+            components["out_isolated"], components["out_stick"], components["out_interactive"],
+            components["out_json"], components["out_comparison"], 
             components["out_score"]
         ]
     )
