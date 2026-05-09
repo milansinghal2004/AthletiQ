@@ -24,7 +24,7 @@ pool.on('error', (err) => {
 });
 
 const PORT = process.env.PORT || 3000;
-const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 7861;
+const DASHBOARD_PORT = process.env.DASHBOARD_PORT || 7860;
 let dashboardProcess = null;
 
 app.use(cors({

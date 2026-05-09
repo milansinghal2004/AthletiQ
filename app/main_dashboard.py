@@ -519,8 +519,8 @@ def generate_interactive_widget(pose_json_path, shot_type="None"):
         sy = (vy-miny)/(maxy-miny+1e-6)
         return round(pad+sx*(W-2*pad),1), round(pad+sy*(H-2*pad),1)
 
-    TRACKED = ["left_shoulder","right_shoulder","left_elbow","right_elbow",
-               "left_hip","right_hip","left_knee","right_knee"]
+    TRACKED = ["left_shoulder","right_shoulder","left_elbow","right_elbow","left_wrist","right_wrist",
+               "left_hip","right_hip","left_knee","right_knee","left_ankle","right_ankle"]
 
     joint_data = {}
     for jname in TRACKED:

@@ -259,20 +259,68 @@ def generate_interactive_widget(pose_json_path, shot_type="None"):
 
     # ---- Ideal ranges & Tips ----
     IDEAL_RANGES = {
-        "default": {"left_elbow_angle":(150,180),"right_elbow_angle":(150,180),"left_knee_angle":(140,175),"right_knee_angle":(140,175),"left_hip_angle":(160,180),"right_hip_angle":(160,180),"left_shoulder_angle":(80,120),"right_shoulder_angle":(80,120)},
-        "flick": {"left_elbow_angle":(80,140),"right_elbow_angle":(100,160),"left_knee_angle":(130,165),"right_knee_angle":(140,175),"left_hip_angle":(150,175),"right_hip_angle":(150,175),"left_shoulder_angle":(60,100),"right_shoulder_angle":(70,110)},
-        "cover": {"left_elbow_angle":(140,175),"right_elbow_angle":(100,150),"left_knee_angle":(140,165),"right_knee_angle":(150,175),"left_hip_angle":(155,175),"right_hip_angle":(155,175),"left_shoulder_angle":(75,110),"right_shoulder_angle":(75,115)},
-        "defense": {"left_elbow_angle":(150,180),"right_elbow_angle":(150,180),"left_knee_angle":(145,175),"right_knee_angle":(145,175),"left_hip_angle":(160,180),"right_hip_angle":(160,180),"left_shoulder_angle":(85,120),"right_shoulder_angle":(85,120)},
-        "pull": {"left_elbow_angle":(70,130),"right_elbow_angle":(70,130),"left_knee_angle":(120,160),"right_knee_angle":(120,160),"left_hip_angle":(140,170),"right_hip_angle":(140,170),"left_shoulder_angle":(50,90),"right_shoulder_angle":(50,90)},
-        "sweep": {"left_elbow_angle":(110,155),"right_elbow_angle":(110,155),"left_knee_angle":(100,145),"right_knee_angle":(110,150),"left_hip_angle":(130,165),"right_hip_angle":(130,165),"left_shoulder_angle":(60,100),"right_shoulder_angle":(60,100)},
+        "default": {
+            "left_elbow_angle":(150,180),"right_elbow_angle":(150,180),
+            "left_knee_angle":(140,175),"right_knee_angle":(140,175),
+            "left_hip_angle":(160,180),"right_hip_angle":(160,180),
+            "left_shoulder_angle":(80,120),"right_shoulder_angle":(80,120),
+            "left_wrist_angle":(160,180),"right_wrist_angle":(160,180),
+            "left_ankle_angle":(90,130),"right_ankle_angle":(90,130)
+        },
+        "flick": {
+            "left_elbow_angle":(80,140),"right_elbow_angle":(100,160),
+            "left_knee_angle":(130,165),"right_knee_angle":(140,175),
+            "left_hip_angle":(150,175),"right_hip_angle":(150,175),
+            "left_shoulder_angle":(60,100),"right_shoulder_angle":(70,110),
+            "left_wrist_angle":(140,170),"right_wrist_angle":(130,160),
+            "left_ankle_angle":(100,140),"right_ankle_angle":(100,140)
+        },
+        "cover": {
+            "left_elbow_angle":(140,175),"right_elbow_angle":(100,150),
+            "left_knee_angle":(140,165),"right_knee_angle":(150,175),
+            "left_hip_angle":(155,175),"right_hip_angle":(155,175),
+            "left_shoulder_angle":(75,110),"right_shoulder_angle":(75,115),
+            "left_wrist_angle":(160,180),"right_wrist_angle":(150,175),
+            "left_ankle_angle":(110,150),"right_ankle_angle":(110,150)
+        },
+        "defense": {
+            "left_elbow_angle":(150,180),"right_elbow_angle":(150,180),
+            "left_knee_angle":(145,175),"right_knee_angle":(145,175),
+            "left_hip_angle":(160,180),"right_hip_angle":(160,180),
+            "left_shoulder_angle":(85,120),"right_shoulder_angle":(85,120),
+            "left_wrist_angle":(165,180),"right_wrist_angle":(165,180),
+            "left_ankle_angle":(120,160),"right_ankle_angle":(120,160)
+        },
+        "pull": {
+            "left_elbow_angle":(70,130),"right_elbow_angle":(70,130),
+            "left_knee_angle":(120,160),"right_knee_angle":(120,160),
+            "left_hip_angle":(140,170),"right_hip_angle":(140,170),
+            "left_shoulder_angle":(50,90),"right_shoulder_angle":(50,90),
+            "left_wrist_angle":(130,160),"right_wrist_angle":(130,160),
+            "left_ankle_angle":(90,130),"right_ankle_angle":(90,130)
+        },
+        "sweep": {
+            "left_elbow_angle":(110,155),"right_elbow_angle":(110,155),
+            "left_knee_angle":(100,145),"right_knee_angle":(110,150),
+            "left_hip_angle":(130,165),"right_hip_angle":(130,165),
+            "left_shoulder_angle":(60,100),"right_shoulder_angle":(60,100),
+            "left_wrist_angle":(140,170),"right_wrist_angle":(140,170),
+            "left_ankle_angle":(80,120),"right_ankle_angle":(80,120)
+        },
     }
     JOINT_TIPS = {
-        "default": {"left_elbow":"Keep elbows relaxed and close to the body.","right_elbow":"Drive through with the right elbow leading.","left_knee":"Bend the front knee to stay balanced.","right_knee":"Flex the back knee for a stable base.","left_hip":"Stay upright at the hips for a straight bat.","right_hip":"Rotate the back hip for power.","left_shoulder":"Point the front shoulder at the bowler.","right_shoulder":"Bring the back shoulder through the line."},
-        "flick": {"left_elbow":"Bend the front elbow early to power the flick.","right_elbow":"Drive wrist rotation with the right elbow.","left_knee":"Firm front leg creates the lever.","right_knee":"Push off the back knee for weight transfer.","left_hip":"Stable hip is the pivot point.","right_hip":"Rotate through to add pace.","left_shoulder":"Lock the front shoulder.","right_shoulder":"Follow through for full extension."},
-        "cover": {"left_elbow":"Extend through the line of the ball.","right_elbow":"Keep tucked to avoid an open bat face.","left_knee":"Drive off a bent front knee.","right_knee":"Back knee low transfers weight forward.","left_hip":"Lead with the front hip.","right_hip":"Let back hip open naturally.","left_shoulder":"Point front shoulder cover-wards.","right_shoulder":"End shoulder over the left foot."},
-        "defense": {"left_elbow":"Keep high and close to guide ball down.","right_elbow":"Up and in - prevents bat angling away.","left_knee":"Soft bend to absorb pace.","right_knee":"Slight flex - avoid locking out.","left_hip":"Stay tall; collapsing causes edges.","right_hip":"Stay sideways; do not rotate hip.","left_shoulder":"Stay high and closed for straight bat.","right_shoulder":"Do not open shoulder early."},
-        "pull": {"left_elbow":"Bend sharply to swing across the line.","right_elbow":"Drive down through the ball.","left_knee":"Stay low - bend both knees.","right_knee":"Deep flex creates coiled power.","left_hip":"Pivot early to make room.","right_hip":"Explosive rotation for power.","left_shoulder":"Drop slightly to get under short ball.","right_shoulder":"Roll over to keep ball low."},
-        "sweep": {"left_elbow":"Lead low - stay close to the pad.","right_elbow":"Drop to guide bat across the line.","left_knee":"Front knee down for a good sweep.","right_knee":"Back knee low for balance.","left_hip":"Stay low; rising up causes mistiming.","right_hip":"Rotate to sweep square or fine.","left_shoulder":"Aim at the leg side target.","right_shoulder":"Full rotation completes follow-through."},
+        "default": {
+            "left_elbow":"Keep elbows relaxed and close to the body.","right_elbow":"Drive through with the right elbow leading.","left_knee":"Bend the front knee to stay balanced.","right_knee":"Flex the back knee for a stable base.","left_hip":"Stay upright at the hips for a straight bat.","right_hip":"Rotate the back hip for power.","left_shoulder":"Point the front shoulder at the bowler.","right_shoulder":"Bring the back shoulder through the line.",
+            "left_wrist":"Keep front wrist firm to guide the bat.","right_wrist":"Flick the back wrist late for timing.","left_ankle":"Keep front ankle flexible for weight shift.","right_ankle":"Back ankle should stay anchored."
+        },
+        "flick": {
+            "left_elbow":"Bend the front elbow early to power the flick.","right_elbow":"Drive wrist rotation with the right elbow.","left_knee":"Firm front leg creates the lever.","right_knee":"Push off the back knee for weight transfer.","left_hip":"Stable hip is the pivot point.","right_hip":"Rotate through to add pace.","left_shoulder":"Lock the front shoulder.","right_shoulder":"Follow through for full extension.",
+            "left_wrist":"Snap the left wrist through the ball.","right_wrist":"Right wrist rotation adds the required angle.","left_ankle":"Lean forward onto the front ankle.","right_ankle":"Drive power from the back ankle."
+        },
+        "cover": {
+            "left_elbow":"Extend through the line of the ball.","right_elbow":"Keep tucked to avoid an open bat face.","left_knee":"Drive off a bent front knee.","right_knee":"Back knee low transfers weight forward.","left_hip":"Lead with the front hip.","right_hip":"Let back hip open naturally.","left_shoulder":"Point front shoulder cover-wards.","right_shoulder":"End shoulder over the left foot.",
+            "left_wrist":"Maintain a high front wrist for control.","right_wrist":"Right wrist directs the ball through gaps.","left_ankle":"Pivot on the front ankle toward cover.","right_ankle":"Stabilize the base with a firm back ankle."
+        },
     }
     GENERAL_TIPS = {"default":"Maintain balance and smooth swing.","defense":"Keep bat close to pad, head over ball.","flick":"Use wrist rotation and firm base.","cover":"Lead with shoulder, transfer weight.","pull":"Stay low, roll wrists.","sweep":"Stay balanced, use front knee."}
 
@@ -298,7 +346,7 @@ def generate_interactive_widget(pose_json_path, shot_type="None"):
         sy = (vy-miny)/(maxy-miny+1e-6)
         return round(pad+sx*(W-2*pad),1), round(pad+sy*(H-2*pad),1)
 
-    TRACKED = ["left_shoulder","right_shoulder","left_elbow","right_elbow","left_hip","right_hip","left_knee","right_knee"]
+    TRACKED = ["left_shoulder","right_shoulder","left_elbow","right_elbow","left_wrist","right_wrist","left_hip","right_hip","left_knee","right_knee","left_ankle","right_ankle"]
     joint_data = {}
     for jname in TRACKED:
         if jname not in avg_landmarks: continue
