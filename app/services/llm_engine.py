@@ -199,5 +199,47 @@ Overall Score: 74
             print(f"LLM Engine Error: {e}")
             return "Overall Score: 0\nImprovements Recommended: Fallback triggered. Analysis complete."
 
+    def generate_joint_tips(self, practice_data, reference_data, shot_type):
+        """
+        Generates 12 individual coaching tips for each joint based on the biomechanical delta.
+        """
+        system_prompt = """
+        You are a high-performance cricket biomechanics analyst.
+        Analyze the average joint angles of a player compared to professional target ranges for a given shot.
+        
+        Return exactly 12 coaching tips, one for each joint, in a STRICT JSON FORMAT.
+        The keys must be: 
+        "left_shoulder", "right_shoulder", "left_elbow", "right_elbow", 
+        "left_wrist", "right_wrist", "left_hip", "right_hip", 
+        "left_knee", "right_knee", "left_ankle", "right_ankle"
+        
+        Guidelines for tips:
+        - Relate the tip to the specific shot type.
+        - Be concise (max 15 words per tip).
+        - Use professional yet encouraging coaching language.
+        - Mention if the joint is 'ideal' or 'needs adjustment' based on the data.
+        
+        JSON ONLY. No other text.
+        """
+        
+        # Prepare a lightweight data summary for the LLM
+        payload = {
+            "model": self.model,
+            "prompt": f"{system_prompt}\n\nShot: {shot_type}\nPlayer Data: {json.dumps(practice_data)}\nReference Data: {json.dumps(reference_data)}\n\nJSON:",
+            "stream": False,
+            "format": "json" # Force JSON output if the model supports it
+        }
+
+        try:
+            response = requests.post(self.base_url, json=payload, timeout=60)
+            response.raise_for_status()
+            result = response.json()
+            raw_response = result.get("response", "{}")
+            return json.loads(raw_response)
+        except Exception as e:
+            print(f"Joint Tip LLM Error: {e}")
+            # Fallback to empty dict; analysis engine will use hardcoded defaults
+            return {}
+
 # Singleton
 llm_engine = LLMEngine()

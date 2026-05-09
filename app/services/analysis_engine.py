@@ -346,6 +346,10 @@ def generate_interactive_widget(pose_json_path, shot_type="None"):
         sy = (vy-miny)/(maxy-miny+1e-6)
         return round(pad+sx*(W-2*pad),1), round(pad+sy*(H-2*pad),1)
 
+    # ---- Generate Personalized Joint Tips from LLM ----
+    print(f"\033[94m[LLM] Generating 12 personalized coaching tips for {shot_type}...\033[0m")
+    llm_joint_tips = llm_engine.generate_joint_tips(avg_angles, ranges, shot_type)
+    
     TRACKED = ["left_shoulder","right_shoulder","left_elbow","right_elbow","left_wrist","right_wrist","left_hip","right_hip","left_knee","right_knee","left_ankle","right_ankle"]
     joint_data = {}
     for jname in TRACKED:
@@ -361,7 +365,10 @@ def generate_interactive_widget(pose_json_path, shot_type="None"):
         else:
             status, color, skey = "Tracked", "#00e5ff", "ref"
             ideal_str = ""
-        joint_data[jname] = {"cx": cx, "cy": cy, "color": color, "status": status, "skey": skey, "angle": f"{val:.1f}" if val is not None else "", "ideal": ideal_str, "tip": joint_tips.get(jname, "Focus on correct form."), "label": jname.replace("_"," ").title()}
+        # Priority: LLM Personalized Tip > Shot-Specific Tip > Default Tip
+        final_tip = llm_joint_tips.get(jname, joint_tips.get(jname, "Focus on correct form."))
+        
+        joint_data[jname] = {"cx": cx, "cy": cy, "color": color, "status": status, "skey": skey, "angle": f"{val:.1f}" if val is not None else "", "ideal": ideal_str, "tip": final_tip, "label": jname.replace("_"," ").title()}
 
     lines_svg = "".join([f'<line x1="{norm(avg_landmarks[a]["x"],avg_landmarks[a]["y"])[0]}" y1="{norm(avg_landmarks[a]["x"],avg_landmarks[a]["y"])[1]}" x2="{norm(avg_landmarks[b]["x"],avg_landmarks[b]["y"])[0]}" y2="{norm(avg_landmarks[b]["x"],avg_landmarks[b]["y"])[1]}" stroke="rgba(0, 229, 255, 0.2)" stroke-width="3" stroke-linecap="round"/>' for a, b in connections if a in avg_landmarks and b in avg_landmarks])
     circles_svg = "".join([f'<circle id="jc_{jn}" class="cpw_joint" cx="{jd["cx"]}" cy="{jd["cy"]}" r="8" fill="{jd["color"]}" stroke="#0a0a0c" stroke-width="2"><title>{jd["label"]}: {jd["angle"]}&deg;</title></circle>' for jn, jd in joint_data.items()])
