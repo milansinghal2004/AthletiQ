@@ -277,6 +277,41 @@ app.post('/api/admin/users', async (req, res) => {
   }
 });
 
+app.post('/api/admin/rankings', async (req, res) => {
+  const { username, password } = req.body;
+  const adminUser = process.env.ADMIN_USERNAME || 'admin';
+  const adminPass = process.env.ADMIN_PASSWORD || '0000';
+  
+  if (username !== adminUser || password !== adminPass) {
+    return res.json({ success: false, message: 'Admin credentials required.' });
+  }
+
+  try {
+    const query = `
+      WITH RankedPlayers AS (
+        SELECT 
+          ah.shot_type, 
+          u.username, 
+          MAX(ah.accuracy_score) as best_score,
+          ROW_NUMBER() OVER(PARTITION BY ah.shot_type ORDER BY MAX(ah.accuracy_score) DESC) as rank
+        FROM analysis_history ah
+        JOIN users u ON ah.user_id = u.id
+        WHERE ah.shot_type IS NOT NULL AND ah.shot_type != 'None'
+        GROUP BY ah.shot_type, u.username
+      )
+      SELECT shot_type, username, best_score
+      FROM RankedPlayers
+      WHERE rank = 1
+      ORDER BY shot_type;
+    `;
+    const result = await pool.query(query);
+    return res.json({ success: true, rankings: result.rows });
+  } catch (err) {
+    console.error('Admin rankings error:', err);
+    return res.json({ success: false, message: 'Could not load rankings.' });
+  }
+});
+
 app.delete('/api/admin/users/:user_id', async (req, res) => {
   const { username, password } = req.body;
   const userId = parseInt(req.params.user_id, 10);

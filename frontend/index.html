@@ -47,6 +47,12 @@
       scrollbar-color: rgba(0, 255, 136, 0.2) rgba(0, 0, 0, 0.2);
     }
 
+    #adminUsersTable::-webkit-scrollbar,
+    #adminRankingsTable::-webkit-scrollbar,
+    #historyTable::-webkit-scrollbar {
+      width: 4px;
+    }
+
     /* ── WORKFLOW OVERHAUL STYLES ── */
     #fileInput {
       display: none;
@@ -1495,6 +1501,15 @@
                     <option value="sweep">Sweep Shot</option>
                   </select>
                 </label>
+                <!-- ADMIN PLAYER SELECTION -->
+                <label id="playerSelectionGroup"
+                  style="display:none;gap:8px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--fire);">
+                  Target Player (Admin Only)
+                  <select id="playerSelect"
+                    style="width:100%;padding:12px;border:1px solid var(--border);background:var(--bg1);color:#fff;outline:none;border-color:var(--fire);">
+                    <option value="">Select a player...</option>
+                  </select>
+                </label>
                 <div style="display:flex;gap:14px;flex-wrap:wrap;">
                   <label
                     style="display:grid;gap:8px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text-dim);width:100%;max-width:210px;">
@@ -1751,7 +1766,7 @@
             </div>
 
             <div id="historyTable"
-              style="display:grid;gap:10px; flex:1; overflow-y:auto; padding-right:8px; max-height:300px;">
+              style="display:grid;gap:10px; flex:1; overflow-y:auto; padding-right:8px; max-height:300px;overscroll-behavior:contain;">
               <!-- History cards -->
             </div>
 
@@ -1761,9 +1776,13 @@
                 <div
                   style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--fire);letter-spacing:1px;">
                   ADMIN CONSOLE</div>
-                <button class="btn-ghost" id="loadUsersBtn" style="padding:2px 8px;font-size:8px;">LIST USERS</button>
+                <div style="display:flex;gap:8px;">
+                  <button class="btn-ghost" id="loadUsersBtn" style="padding:2px 8px;font-size:8px;">USERS</button>
+                  <button class="btn-ghost" id="loadRankingsBtn" style="padding:2px 8px;font-size:8px;">RANKINGS</button>
+                </div>
               </div>
-              <div id="adminUsersTable" style="display:grid;gap:8px;"></div>
+              <div id="adminUsersTable" style="display:grid;gap:8px;max-height:300px;overflow-y:auto;padding-right:4px;overscroll-behavior:contain;"></div>
+              <div id="adminRankingsTable" style="display:none;grid-gap:8px;margin-top:12px;max-height:300px;overflow-y:auto;padding-right:4px;overscroll-behavior:contain;"></div>
             </div>
           </div>
         </div>
@@ -2133,6 +2152,10 @@
       const adminPanel = document.getElementById('adminPanel');
       const loadUsersBtn = document.getElementById('loadUsersBtn');
       const adminUsersTable = document.getElementById('adminUsersTable');
+      const loadRankingsBtn = document.getElementById('loadRankingsBtn');
+      const adminRankingsTable = document.getElementById('adminRankingsTable');
+      const playerSelectionGroup = document.getElementById('playerSelectionGroup');
+      const playerSelect = document.getElementById('playerSelect');
 
       function showTab(tab) {
         if (tab === 'login') {
@@ -2180,6 +2203,7 @@
         if (blurOverlay) {
           blurOverlay.classList.toggle('active', newState);
         }
+        document.body.style.overflow = newState ? 'hidden' : '';
 
         if (newState) {
           loadProfileData();
@@ -2201,8 +2225,65 @@
         }
       });
 
+      async function refreshAdminRankings() {
+        if (!appState.isAdmin) return;
+        adminRankingsTable.style.display = 'grid';
+        adminUsersTable.style.display = 'none';
+        adminRankingsTable.innerHTML = '<div style="color:var(--acid);font-family:\'Share Tech Mono\',monospace;font-size:10px;padding:12px;text-align:center;opacity:0.6;">⟳ CALCULATING GLOBAL RANKINGS...</div>';
+
+        try {
+          const res = await fetch('/api/admin/rankings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: 'admin', password: '0000' })
+          });
+          const body = await res.json();
+          if (body.success && body.rankings) {
+            if (body.rankings.length === 0) {
+              adminRankingsTable.innerHTML = '<div style="color:var(--text-dim);font-family:\'Share Tech Mono\',monospace;font-size:10px;padding:12px;text-align:center;">NO ANALYSES RECORDED YET.</div>';
+              return;
+            }
+            adminRankingsTable.innerHTML = body.rankings.map(r => `
+              <div style="display:grid;grid-template-columns:1fr auto;gap:12px;padding:12px;border:1px solid rgba(0,255,136,.15);background:rgba(0,255,136,.03);border-left:2px solid var(--acid);">
+                <div>
+                  <div style="font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--acid);letter-spacing:1px;text-transform:uppercase;">${r.shot_type}</div>
+                  <div style="font-family:'Share Tech Mono',monospace;font-size:12px;color:#fff;font-weight:bold;">${r.username}</div>
+                </div>
+                <div style="display:flex;align-items:center;color:var(--acid);font-family:'Rajdhani',sans-serif;font-weight:700;font-size:18px;">
+                  ${Math.round(r.best_score)}%
+                </div>
+              </div>
+            `).join('');
+          } else {
+            adminRankingsTable.innerHTML = `<div style="color:var(--fire);font-size:10px;padding:12px;text-align:center;">${body.message || 'Error loading rankings.'}</div>`;
+          }
+        } catch (e) {
+          adminRankingsTable.innerHTML = '<div style="color:var(--fire);font-size:10px;padding:12px;text-align:center;">Network error.</div>';
+        }
+      }
+
+      async function loadPlayerDropdown() {
+        if (!appState.isAdmin) return;
+        try {
+          const res = await fetch('/api/admin/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: 'admin', password: '0000' })
+          });
+          const body = await res.json();
+          if (body.success && body.users) {
+            playerSelect.innerHTML = '<option value="">Analyze for self (Admin)</option>' +
+              body.users.filter(u => !u.is_admin).map(u => `<option value="${u.id}">${u.username}</option>`).join('');
+          }
+        } catch (e) {
+          console.error('Failed to load players:', e);
+        }
+      }
+
       async function refreshAdminUsers() {
         if (!appState.isAdmin) return;
+        adminUsersTable.style.display = 'grid';
+        adminRankingsTable.style.display = 'none';
         const res = await fetch('/api/admin/users', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2335,7 +2416,14 @@
         registerConfirmBtn.style.display = 'none';
         if (adminPanel) {
           adminPanel.style.display = appState.isAdmin ? 'block' : 'none';
-          if (!appState.isAdmin) adminUsersTable.innerHTML = '';
+          if (!appState.isAdmin) {
+            adminUsersTable.innerHTML = '';
+            adminRankingsTable.innerHTML = '';
+            playerSelectionGroup.style.display = 'none';
+          } else {
+            playerSelectionGroup.style.display = 'grid';
+            loadPlayerDropdown();
+          }
         }
         setLoginGate(false);
       }
@@ -2349,7 +2437,16 @@
           else showLoginModal();
         });
       }
-      if (loadUsersBtn) loadUsersBtn.addEventListener('click', refreshAdminUsers);
+      if (loadUsersBtn) {
+        loadUsersBtn.addEventListener('click', () => {
+          adminUsersTable.style.display = 'grid';
+          adminRankingsTable.style.display = 'none';
+          refreshAdminUsers();
+        });
+      }
+      if (loadRankingsBtn) {
+        loadRankingsBtn.addEventListener('click', refreshAdminRankings);
+      }
 
       document.getElementById('loginBtn').addEventListener('click', async () => {
         const username = document.getElementById('loginUsername').value.trim();
@@ -2528,11 +2625,9 @@
         if (currentFile) {
           if (appState.userId) {
             goToStep(2);
-            launchDashboard();
           } else {
             showLoginModal(() => {
               goToStep(2);
-              launchDashboard();
             });
           }
         }
@@ -2572,7 +2667,8 @@
 
           let url = '/launch-dashboard?';
           if (videoParam) url += videoParam.substring(1) + '&';
-          if (appState.userId) url += `user_id=${appState.userId}`;
+          const targetUserId = (appState.isAdmin && playerSelect.value) ? playerSelect.value : appState.userId;
+          if (targetUserId) url += `user_id=${targetUserId}`;
 
           const res = await fetch(url);
           if (!res.ok) throw new Error('Launch request failed');
@@ -2619,7 +2715,8 @@
           formData.append('shot_type', document.getElementById('shotType').value || 'None');
           formData.append('click_x', document.getElementById('clickX').value || '320');
           formData.append('click_y', document.getElementById('clickY').value || '240');
-          formData.append('user_id', appState.userId);
+          const targetUserId = (appState.isAdmin && playerSelect.value) ? playerSelect.value : appState.userId;
+          formData.append('user_id', targetUserId);
 
           const res = await fetch('/run-analysis', {
             method: 'POST',
