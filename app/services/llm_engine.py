@@ -105,18 +105,6 @@ Step 4 — Scoring:
  Never go below 0.
 
 ================================================================
- OUTPUT FORMAT — STRICTLY FOLLOW THIS
- ================================================================
-
-Overall Score: [number out of 100]
- Improvements Recommended: [Write each improvement on a new line, 
- starting with a dash. Be specific about which joint and what the 
- player should do differently during the shot execution. Use plain 
- coaching language a cricket player can understand. Do not mention 
- frame numbers in your output. Do not show calculations or 
- intermediate steps. Maximum 5 improvements.]
-
-================================================================
 OUTPUT FORMAT — STRICTLY FOLLOW THIS
 ================================================================
 
@@ -146,24 +134,15 @@ Analyze sequencing and synchronization of movement.
 ## Power Generation
 Analyze kinetic chain efficiency and momentum transfer.
 
-## Coaching Recommendations
-- Recommendation 1
-- Recommendation 2
-- Recommendation 3
-- Recommendation 4
-- Recommendation 5
-
 IMPORTANT RULES:
 - Do NOT write placeholders like "[To be determined]"
 - Do NOT write "Dash:"
-- Recommendations MUST use proper markdown bullet points
 - Do NOT explain the JSON data
 - Do NOT mention frames
 - Speak like an elite cricket biomechanics coach
 - Be technical but easy to understand
 - Always provide a numeric score
 - Use professional sports-analysis language
-================================================================
 ================================================================
  RULES YOU MUST NEVER BREAK
  ================================================================

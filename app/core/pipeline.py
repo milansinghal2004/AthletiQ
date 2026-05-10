@@ -26,7 +26,7 @@ class AthletiQPipeline:
     def process(self, video_path, click_coords, shot_type=None, progress_callback=None):
         """
         The main trigger function for the entire analysis.
-        This is what your future backend will call.
+        Restored to high-fidelity SAM2 segmentation version.
         """
         try:
             if not video_path or not click_coords:
@@ -115,18 +115,14 @@ class AthletiQPipeline:
             print(f"[Pipeline] Extracting biomechanics from: {out_isolated_path}")
             bio_json_path = os.path.join(OUTPUTS_DIR, f"biomechanics_{session_id}.json")
             practice_pose_data = self.mm.extractor.extract_from_video(out_isolated_path, progress_callback=progress_callback)
-            # Save full pose data (including landmarks) for the interactive widget
             with open(bio_json_path, "w") as f:
                 json.dump(practice_pose_data["frames"], f, indent=4)
 
             # 5. Sync & Final Analytics
-            # Auto-detect if shot is not specified or set to "None"
             final_shot = shot_type
             if not final_shot or str(final_shot).lower() == "none":
-                print("[Pipeline] Auto-detecting shot type...")
                 final_shot, _ = self.auto_detect_shot(video_path)
             
-            # Map raw shot type (e.g. 'cover') to pretty label (e.g. 'Cover Drive') if needed
             from app.config import SHOT_LABEL_MAP
             final_shot = SHOT_LABEL_MAP.get(str(final_shot).lower(), final_shot)
 
@@ -160,13 +156,6 @@ class AthletiQPipeline:
             error_details = traceback.format_exc()
             print(f"\033[91m[Pipeline Error] {error_details}\033[0m")
             if DEVICE == "cuda": torch.cuda.empty_cache()
-            # Cleanup session temp dir
-            if 'session_temp_dir' in locals() and os.path.exists(session_temp_dir):
-                import shutil
-                try:
-                    shutil.rmtree(session_temp_dir)
-                except:
-                    pass
             return None, f"Error: {str(e)}"
 
 # Singleton instance

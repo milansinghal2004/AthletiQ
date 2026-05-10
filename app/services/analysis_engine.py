@@ -386,6 +386,14 @@ def generate_interactive_widget(pose_json_path, shot_type="None"):
   * {{ scrollbar-width: thin; scrollbar-color: #00ff88 #0a0a0c; }}
   .cpw_joint {{ transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer; }}
   .cpw_joint:hover {{ filter: brightness(1.2) drop-shadow(0 0 8px currentColor); transform-origin: center; }}
+  .cpw_floating_tip {{
+    animation: cpwFadeIn 0.4s ease-out forwards;
+    pointer-events: none;
+  }}
+  @keyframes cpwFadeIn {{
+    from {{ opacity: 0; transform: translateY(10px); }}
+    to {{ opacity: 1; transform: translateY(0); }}
+  }}
 </style>
 <div id="cpw" style="font-family:'Rajdhani',sans-serif;background:#0a0a0c;color:#ffffff;border-radius:12px;overflow:hidden;border:1px solid rgba(0, 255, 136, 0.15);box-shadow: 0 0 30px rgba(0,0,0,0.5);">
   <div style="background:#121217;border-bottom:1px solid rgba(0, 255, 136, 0.1);padding:12px 18px;display:flex;align-items:center;justify-content:space-between;">
@@ -394,24 +402,44 @@ def generate_interactive_widget(pose_json_path, shot_type="None"):
   </div>
   <div style="display:flex;">
     <div style="flex:0 0 auto;background:#0a0a0c;border-right:1px solid rgba(0, 255, 136, 0.1);padding:16px;display:flex;flex-direction:column;align-items:center;">
-      <svg id="cpw_svg" viewBox="0 0 328 428" width="230" height="310" style="background:#0a0a0c;">
-        {lines_svg}{circles_svg}<circle id="cpw_ring" cx="-999" cy="-999" r="15" fill="none" stroke="#00ff88" stroke-width="2.5" stroke-dasharray="5 3" opacity="0"/>
-      </svg>
+      <div style="position:relative;">
+        <svg id="cpw_svg" viewBox="0 0 328 428" width="230" height="310" style="background:#0a0a0c;">
+          {lines_svg}{circles_svg}
+          <circle id="cpw_ring" cx="-999" cy="-999" r="15" fill="none" stroke="#00ff88" stroke-width="2.5" stroke-dasharray="5 3" opacity="0"/>
+        </svg>
+      </div>
     </div>
     <div style="flex:1;min-width:0;display:flex;flex-direction:column;background:#121217;">
       <div id="cpw_detail" style="padding:16px 18px;background:rgba(0, 255, 136, 0.03);border-bottom:1px solid rgba(0, 255, 136, 0.1);min-height:145px;display:flex;align-items:center;justify-content:center;">
         <div style="color:#94a3b8;font-size:14px;text-align:center;font-style:italic;">Select a joint for deep analysis</div>
       </div>
       <div style="overflow-y:auto;max-height:300px;"><table id="cpw_table" style="width:100%;border-collapse:collapse;font-size:12px;"><tbody>{table_rows}</tbody></table></div>
-      <div style="padding:12px 18px;background:#121217;border-top:1px solid rgba(0, 255, 136, 0.1);margin-top:auto;"><p style="font-size:10px;color:#00ff88;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;font-weight:700;">Coaching Insight</p><p style="font-size:12px;color:#94a3b8;margin:0;line-height:1.4;">{general_tip}</p></div>
     </div>
   </div>
 </div>
 <script>
 var CPW_DATA={js_data},CPW_CUR=null;
-function cpwSel(n){{ if(CPW_CUR===n) return; if(CPW_CUR){{ var e=document.getElementById('jc_'+CPW_CUR); if(e){{e.setAttribute('r','8');e.setAttribute('stroke','#0a0a0c');e.setAttribute('stroke-width','2');}} var r=document.getElementById('tr_'+CPW_CUR); if(r)r.style.background=''; }} CPW_CUR=n; var jd=CPW_DATA[n], el=document.getElementById('jc_'+n); if(el){{el.setAttribute('r','13');el.setAttribute('stroke',jd.color);el.setAttribute('stroke-width','3');}} var row=document.getElementById('tr_'+n); if(row)row.style.background='rgba(0, 255, 136, 0.08)'; var ring=document.getElementById('cpw_ring'); if(ring){{ring.setAttribute('cx',jd.cx);ring.setAttribute('cy',jd.cy);ring.setAttribute('stroke',jd.color);ring.setAttribute('opacity','1');}}
-var bbg=jd.skey==='ideal'?'rgba(63, 185, 80, 0.15)':jd.skey==='warn'?'rgba(210, 153, 34, 0.15)':jd.skey==='bad'?'rgba(248, 81, 73, 0.15)':'rgba(0, 229, 255, 0.15)';
-document.getElementById('cpw_detail').innerHTML=`<div style="display:flex;gap:14px;width:100%;"><div style="width:48px;height:48px;border-radius:50%;background:${{bbg}};border:2px solid ${{jd.color}};display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px ${{jd.color}}44;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${{jd.color}}" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></div><div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">${{jd.label}}</span><span style="font-size:9px;padding:2px 8px;border-radius:4px;background:${{bbg}};color:${{jd.color}};font-weight:700;text-transform:uppercase;">${{jd.status}}</span></div><div style="display:flex;gap:24px;margin-bottom:12px;"><div><div style="font-size:9px;color:#94a3b8;letter-spacing:1px;">DETECTED</div><div style="font-size:28px;font-weight:800;color:${{jd.color}};font-family:'Share Tech Mono',monospace;">${{jd.angle}}&deg;</div></div><div><div style="font-size:9px;color:#94a3b8;letter-spacing:1px;">TARGET</div><div style="font-size:28px;font-weight:800;color:#94a3b8;font-family:'Share Tech Mono',monospace;">${{jd.ideal}}&deg;</div></div></div><div style="background:rgba(0,0,0,0.2);padding:10px;border-left:3px solid ${{jd.color}};border-radius:0 4px 4px 0;"><p style="font-size:12px;color:#94a3b8;margin:0;line-height:1.4;">${{jd.tip}}</p></div></div></div>`; }}
+function cpwSel(n){{ 
+  if(CPW_CUR===n) return; 
+  if(CPW_CUR){{ 
+    var e=document.getElementById('jc_'+CPW_CUR); 
+    if(e){{e.setAttribute('r','8');e.setAttribute('stroke','#0a0a0c');e.setAttribute('stroke-width','2');}} 
+    var r=document.getElementById('tr_'+CPW_CUR); 
+    if(r)r.style.background=''; 
+  }} 
+  CPW_CUR=n; 
+  var jd=CPW_DATA[n], el=document.getElementById('jc_'+n); 
+  if(el){{el.setAttribute('r','13');el.setAttribute('stroke',jd.color);el.setAttribute('stroke-width','3');}} 
+  var row=document.getElementById('tr_'+n); 
+  if(row)row.style.background='rgba(0, 255, 136, 0.08)'; 
+  var ring=document.getElementById('cpw_ring'); 
+  if(ring){{ring.setAttribute('cx',jd.cx);ring.setAttribute('cy',jd.cy);ring.setAttribute('stroke',jd.color);ring.setAttribute('opacity','1');}}
+  
+  var bbg=jd.skey==='ideal'?'rgba(63, 185, 80, 0.15)':jd.skey==='warn'?'rgba(210, 153, 34, 0.15)':jd.skey==='bad'?'rgba(248, 81, 73, 0.15)':'rgba(0, 229, 255, 0.15)';
+  
+  // Update Detail Panel
+  document.getElementById('cpw_detail').innerHTML=`<div style="display:flex;gap:14px;width:100%;"><div style="width:48px;height:48px;border-radius:50%;background:${{bbg}};border:2px solid ${{jd.color}};display:flex;align-items:center;justify-content:center;box-shadow:0 0 15px ${{jd.color}}44;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${{jd.color}}" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg></div><div style="flex:1;"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;"><span style="font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">${{jd.label}}</span><span style="font-size:9px;padding:2px 8px;border-radius:4px;background:${{bbg}};color:${{jd.color}};font-weight:700;text-transform:uppercase;">${{jd.status}}</span></div><div style="display:flex;gap:24px;margin-bottom:12px;"><div><div style="font-size:9px;color:#94a3b8;letter-spacing:1px;">DETECTED</div><div style="font-size:28px;font-weight:800;color:${{jd.color}};font-family:'Share Tech Mono',monospace;">${{jd.angle}}&deg;</div></div><div><div style="font-size:9px;color:#94a3b8;letter-spacing:1px;">TARGET</div><div style="font-size:28px;font-weight:800;color:#94a3b8;font-family:'Share Tech Mono',monospace;">${{jd.ideal}}&deg;</div></div></div><div style="background:rgba(0,0,0,0.2);padding:10px;border-left:3px solid ${{jd.color}};border-radius:0 4px 4px 0;"><p style="font-size:12px;color:#94a3b8;margin:0;line-height:1.4;">${{jd.tip}}</p></div></div></div>`;
+}}
 Object.keys(CPW_DATA).forEach(n=>{{ var e=document.getElementById('jc_'+n); if(e)e.onclick=()=>cpwSel(n); var r=document.getElementById('tr_'+n); if(r)r.onclick=()=>cpwSel(n); }});
 </script>
 """
