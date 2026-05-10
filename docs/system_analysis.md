@@ -148,10 +148,10 @@ graph LR
     ST3 --> ST4
 
     %% Styling
-    style ST1 fill:rgba(0,255,136,0.05),stroke:#00ff88,stroke-width:2px
-    style ST2 fill:rgba(0,229,255,0.05),stroke:#00e5ff,stroke-width:2px
-    style ST3 fill:rgba(255,0,255,0.05),stroke:#ff00ff,stroke-width:2px
-    style ST4 fill:rgba(255,255,255,0.05),stroke:#ffffff,stroke-width:2px
+    style ST1 fill:#003322,stroke:#00ff88,stroke-width:2px
+    style ST2 fill:#002233,stroke:#00e5ff,stroke-width:2px
+    style ST3 fill:#330033,stroke:#ff00ff,stroke-width:2px
+    style ST4 fill:#222222,stroke:#ffffff,stroke-width:2px
 ```
 
 ---

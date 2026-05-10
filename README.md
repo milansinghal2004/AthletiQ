@@ -71,10 +71,10 @@ graph LR
     ST3 --> ST4
 
     %% Styling
-    style ST1 fill:rgba(0,255,136,0.05),stroke:#00ff88,stroke-width:2px
-    style ST2 fill:rgba(0,229,255,0.05),stroke:#00e5ff,stroke-width:2px
-    style ST3 fill:rgba(255,0,255,0.05),stroke:#ff00ff,stroke-width:2px
-    style ST4 fill:rgba(255,255,255,0.05),stroke:#ffffff,stroke-width:2px
+    style ST1 fill:#003322,stroke:#00ff88,stroke-width:2px
+    style ST2 fill:#002233,stroke:#00e5ff,stroke-width:2px
+    style ST3 fill:#330033,stroke:#ff00ff,stroke-width:2px
+    style ST4 fill:#222222,stroke:#ffffff,stroke-width:2px
 ```
 
 ### 🏛️ Technical Architecture
@@ -123,38 +123,8 @@ graph TB
     B <--> E
 ```
 
-### 🧬 Core Class Structure
-The system is built around a centralized model manager and a high-level pipeline orchestrator.
-
-```mermaid
-classDiagram
-    class ModelManager {
-        +predictor: SAM2Predictor
-        +extractor: PoseExtractor
-        +sync_engine: SyncEngine
-        +shot_classifier: ShotClassifier
-        -_load_models()
-    }
-
-    class AthletiQPipeline {
-        +mm: ModelManager
-        +process(video_path, click_coords)
-        +auto_detect_shot(video_path)
-    }
-
-    class PoseExtractor {
-        +options: PoseLandmarkerOptions
-        +extract_from_video(video_path)
-        +calculate_angle(a, b, c)
-        -_interpolate_gaps(frames)
-    }
-
-    AthletiQPipeline *-- ModelManager
-    ModelManager o-- PoseExtractor
-```
-
 > [!NOTE]
-> For a more detailed breakdown of the internal algorithms and segmented DTW logic, refer to the [Full System Analysis](docs/system_analysis.md) and the [Detailed Class Diagram](docs/class_diagram.md).
+> For a more detailed breakdown of the internal algorithms, class structures, and segmented DTW logic, refer to the [Full System Analysis](docs/system_analysis.md) and the [Detailed Class Diagram](docs/class_diagram.md).
 
 ---
 
