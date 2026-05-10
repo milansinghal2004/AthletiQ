@@ -3,7 +3,7 @@ import json
 import os
 
 class LLMEngine:
-    def __init__(self, model="gemma2:2b", base_url="http://localhost:11434"):
+    def __init__(self, model="gemma4:31b-cloud", base_url="http://localhost:11434"):
         self.model = model
         self.base_url = f"{base_url}/api/generate"
 
