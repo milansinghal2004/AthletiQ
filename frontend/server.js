@@ -1,4 +1,5 @@
 require('dotenv').config();
+console.log("CURRENT DB URL:", process.env.DATABASE_URL);
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
