@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 venv/
 ENV/
+.env
 
 # Project Specific - Data & Outputs (Production Rule: No inputs/outputs on GitHub)
 outputs/
