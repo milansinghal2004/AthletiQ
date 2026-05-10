@@ -1,3 +1,5 @@
+require('dotenv').config();
+console.log("CURRENT DB URL:", process.env.DATABASE_URL);
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
@@ -10,7 +12,11 @@ const { Pool } = require('pg');
 const app = express();
 const upload = multer({ dest: 'uploads/' });
 
-const DB_URL = process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_zFYjt0hdEXN9@ep-raspy-snow-anhp06i7-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=verify-full';
+const DB_URL = process.env.DATABASE_URL;
+if (!DB_URL) {
+  console.error("CRITICAL ERROR: DATABASE_URL is not defined in .env file.");
+  process.exit(1);
+}
 const pool = new Pool({
   connectionString: DB_URL,
   max: 1,
@@ -80,7 +86,11 @@ async function ensureTables() {
       `INSERT INTO users (username, password, email, is_admin)
        VALUES ($1, $2, $3, true)
        ON CONFLICT (username) DO UPDATE SET password = EXCLUDED.password, is_admin = true`,
-      ['admin', '0000', 'admin@athletiq.local']
+      [
+        process.env.ADMIN_USERNAME || 'admin',
+        process.env.ADMIN_PASSWORD || '0000',
+        process.env.ADMIN_EMAIL || 'admin@athletiq.local'
+      ]
     );
   } finally {
     client.release();
@@ -250,7 +260,10 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/admin/users', async (req, res) => {
   const { username, password } = req.body;
-  if (username !== 'admin' || password !== '0000') {
+  const adminUser = process.env.ADMIN_USERNAME || 'admin';
+  const adminPass = process.env.ADMIN_PASSWORD || '0000';
+  
+  if (username !== adminUser || password !== adminPass) {
     return res.json({ success: false, message: 'Admin credentials required.' });
   }
 
@@ -268,8 +281,10 @@ app.post('/api/admin/users', async (req, res) => {
 app.delete('/api/admin/users/:user_id', async (req, res) => {
   const { username, password } = req.body;
   const userId = parseInt(req.params.user_id, 10);
+  const adminUser = process.env.ADMIN_USERNAME || 'admin';
+  const adminPass = process.env.ADMIN_PASSWORD || '0000';
 
-  if (username !== 'admin' || password !== '0000') {
+  if (username !== adminUser || password !== adminPass) {
     return res.json({ success: false, message: 'Admin credentials required.' });
   }
   if (!userId) {

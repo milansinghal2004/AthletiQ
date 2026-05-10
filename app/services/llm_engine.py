@@ -3,7 +3,7 @@ import json
 import os
 
 class LLMEngine:
-    def __init__(self, model="gemma4:31b-cloud", base_url="http://localhost:11434"):
+    def __init__(self, model="gemma2:2b", base_url="http://localhost:11434"):
         self.model = model
         self.base_url = f"{base_url}/api/generate"
 
@@ -117,19 +117,53 @@ Overall Score: [number out of 100]
  intermediate steps. Maximum 5 improvements.]
 
 ================================================================
- EXAMPLE OUTPUT FORMAT (do not copy this content, only the format):
- ================================================================
+OUTPUT FORMAT — STRICTLY FOLLOW THIS
+================================================================
 
-Overall Score: 74
- Improvements Recommended:
- - During the shot, the right knee should bend more — aim for around 
- 130-140 degrees instead of staying nearly straight. This helps you 
- get low and generate power for the flick.
- - Your left elbow is collapsing too early during execution. Keep it 
- higher and more extended through the swing to maintain bat control.
- - Hip rotation during the shot is insufficient compared to the reference. 
- Drive your hips through more aggressively to improve power and timing.
+You MUST return the report in VALID MARKDOWN.
 
+Use EXACTLY this structure:
+
+# Technical Biomechanical Analysis Report
+
+## Overall Score
+[number]/100
+
+## Shot Execution Summary
+Write 3-5 sentences comparing the player's execution phase to the professional reference.
+
+## Upper Body Mechanics
+Analyze elbows and upper-body coordination.
+Discuss bat control, elbow positioning, extension, and swing mechanics.
+
+## Lower Body Mechanics
+Analyze hips and knees.
+Discuss balance, weight transfer, stability, and base generation.
+
+## Timing & Coordination
+Analyze sequencing and synchronization of movement.
+
+## Power Generation
+Analyze kinetic chain efficiency and momentum transfer.
+
+## Coaching Recommendations
+- Recommendation 1
+- Recommendation 2
+- Recommendation 3
+- Recommendation 4
+- Recommendation 5
+
+IMPORTANT RULES:
+- Do NOT write placeholders like "[To be determined]"
+- Do NOT write "Dash:"
+- Recommendations MUST use proper markdown bullet points
+- Do NOT explain the JSON data
+- Do NOT mention frames
+- Speak like an elite cricket biomechanics coach
+- Be technical but easy to understand
+- Always provide a numeric score
+- Use professional sports-analysis language
+================================================================
 ================================================================
  RULES YOU MUST NEVER BREAK
  ================================================================
@@ -165,7 +199,36 @@ Overall Score: 74
                     "right_hip_angle": a.get("right_hip")
                 })
             return formatted
+        def summarize_angles(data):
+            joints = [
+                "left_elbow",
+                "right_elbow",
+                "left_knee",
+                "right_knee",
+                "left_hip",
+                "right_hip"
+            ]
 
+            summary = {}
+
+            for joint in joints:
+                vals = []
+
+                for f in data:
+                    a = f.get("angles", f.get("mean_angles", {}))
+                    val = a.get(joint)
+
+                    if val is not None:
+                        vals.append(val)
+
+                if vals:
+                    summary[joint] = {
+                        "average": round(sum(vals) / len(vals), 2),
+                        "minimum": round(min(vals), 2),
+                        "maximum": round(max(vals), 2)
+                    }
+
+            return summary
         user_input = {
             "shot_type": shot_type,
             "metadata": {
@@ -180,8 +243,8 @@ Overall Score: 74
                     "end": len(reference_data) - 1
                 }
             },
-            "practice_shot_angles": format_frames(practice_data),
-            "reference_shot_angles": format_frames(reference_data)
+            "practice_summary": summarize_angles(practice_data),
+            "reference_summary": summarize_angles(reference_data)
         }
 
         payload = {
@@ -191,13 +254,15 @@ Overall Score: 74
         }
 
         try:
-            response = requests.post(self.base_url, json=payload, timeout=60)
+            response = requests.post(self.base_url, json=payload, timeout=180)
             response.raise_for_status()
             result = response.json()
             return result.get("response", "Overall Score: 0\nImprovements Recommended: Error generating feedback.")
         except Exception as e:
-            print(f"LLM Engine Error: {e}")
-            return "Overall Score: 0\nImprovements Recommended: Fallback triggered. Analysis complete."
+            # print(f"LLM Engine Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return f"LLM ERROR:\n{str(e)}"
 
     def generate_joint_tips(self, practice_data, reference_data, shot_type):
         """
@@ -223,6 +288,7 @@ Overall Score: 74
         """
         
         # Prepare a lightweight data summary for the LLM
+        
         payload = {
             "model": self.model,
             "prompt": f"{system_prompt}\n\nShot: {shot_type}\nPlayer Data: {json.dumps(practice_data)}\nReference Data: {json.dumps(reference_data)}\n\nJSON:",
