@@ -30,51 +30,63 @@
 
 ## 🏗️ System Architecture & Workflow
 
-### 📋 System Pipeline Flowchart
-The AthletiQ pipeline is a multi-stage process that transforms raw video into structured biomechanical intelligence.
+### 📋 Professional Analysis Pipeline Flowchart
+A multi-dimensional mapping of the AthletiQ biomechanical processing engine.
 
 ```mermaid
-graph LR
-    %% Stage 1: Preparation
-    subgraph ST1 ["Stage 1: Preparation"]
-        direction TB
-        A([User Upload]) --> B{Auth?}
-        B -- No --> C[Login/Reg]
-        B -- Yes --> D[Click Tracking]
-        C --> B
+graph TD
+    %% --- INGESTION STAGE ---
+    subgraph IN ["1. Ingestion & Initialization"]
+        A([User Video Upload]) --> B[FFmpeg: Normalization to MP4]
+        B --> C[OpenCV: Frame Extraction]
+        B --> D[R3D-18: Automatic Shot Detection]
     end
 
-    %% Stage 2: Vision Core
-    subgraph ST2 ["Stage 2: Vision & AI Core"]
+    %% --- VISION STAGE ---
+    subgraph VN ["2. Neural Vision Core"]
         direction LR
-        E[SAM2 Tracking] --> F[Player Isolation]
-        F --> G[Pose Extraction]
+        E[UI Click Coordinates] --> F[SAM2: State Initialization]
+        F --> G[SAM2: Point-to-Mask Propagation]
+        G --> H[Isolator: BG Darkening & Neon Glow]
     end
 
-    %% Stage 3: Synchronization
-    subgraph ST3 ["Stage 3: Synchronization"]
-        direction LR
-        H[Shot Detection] --> I[Segmented DTW]
-        I --> J[Accuracy Scoring]
-    end
-
-    %% Stage 4: Feedback
-    subgraph ST4 ["Stage 4: Feedback & UI"]
+    %% --- BIOMECHANICS STAGE ---
+    subgraph BM ["3. Biomechanical Decoding"]
         direction TB
-        K[LLM Report] --> L[Interactive HUD]
-        L --> M[(History DB)]
+        H --> I[MediaPipe: 12-Point Landmark Detection]
+        I --> J[Geometry Engine: 8-Joint Angle Calculation]
+        J --> K[Linear Interpolation: Gap Filling & Smoothing]
     end
 
-    %% Connections
-    D --> ST2
-    ST2 --> ST3
-    ST3 --> ST4
+    %% --- ALIGNMENT STAGE ---
+    subgraph SY ["4. Temporal Intelligence"]
+        direction LR
+        K --> L[Phase ID: Strike Point Detection]
+        L --> M[Segmented DTW: Pro-Benchmarking]
+        M --> N[Scoring: Weighted Euclidean Deviation]
+    end
 
-    %% Styling
-    style ST1 fill:#003322,stroke:#00ff88,stroke-width:2px
-    style ST2 fill:#002233,stroke:#00e5ff,stroke-width:2px
-    style ST3 fill:#330033,stroke:#ff00ff,stroke-width:2px
-    style ST4 fill:#222222,stroke:#ffffff,stroke-width:2px
+    %% --- INSIGHT STAGE ---
+    subgraph RT ["5. Insights & HUD Rendering"]
+        direction TB
+        N --> O[Ollama: Gemma-4 Biometric Reasoning]
+        O --> P[Interactive SVG Widget Generation]
+        P --> Q[Side-by-Side Synced Video Render]
+    end
+
+    %% --- EXTERNAL CONNECTIONS ---
+    IN --> VN
+    VN --> BM
+    BM --> SY
+    SY --> RT
+    RT --> Z[(PostgreSQL: History Archive)]
+
+    %% --- STYLING ---
+    style IN fill:#0a1a0a,stroke:#00ff88,stroke-width:2px
+    style VN fill:#0a1a1a,stroke:#00e5ff,stroke-width:2px
+    style BM fill:#1a0a1a,stroke:#ff00ff,stroke-width:2px
+    style SY fill:#1a1a0a,stroke:#ffff00,stroke-width:2px
+    style RT fill:#1a1a1a,stroke:#ffffff,stroke-width:2px
 ```
 
 ### 🏛️ Technical Architecture
