@@ -30,72 +30,131 @@
 
 ## 🏗️ System Architecture & Workflow
 
-### 📋 System Flowchart
+### 📋 System Pipeline Flowchart
+The AthletiQ pipeline is a multi-stage process that transforms raw video into structured biomechanical intelligence.
+
 ```mermaid
-flowchart TD
-    Start([User Uploads Practice Clip]) --> Auth{Authenticated?}
-    Auth -- No --> Reg[Register / Login]
-    Reg --> Auth
-    Auth -- Yes --> Select[Interactive Video Selection]
-    
-    Select --> |Click Player| NodeSrv[Node.js Orchestrator]
-    NodeSrv --> |Session Init| DB[(Neon PostgreSQL)]
-    
-    NodeSrv --> |Spawn Runner| Pipe[Python Master Pipeline]
-    
-    subgraph "AI Processing Pipeline"
-        Pipe --> SAM2[SAM2: Precise Object Tracking]
-        SAM2 --> Isolator[Player Isolation & Neon Glow Rendering]
-        Isolator --> Pose[MediaPipe: 12-Joint Biomechanics]
-        Pose --> Shot[Shot Classifier: Automatic Detection]
-        Shot --> Sync[Segmented DTW: Pro-Benchmark Alignment]
+graph LR
+    %% Stage 1: Preparation
+    subgraph ST1 ["Stage 1: Preparation"]
+        direction TB
+        A([User Upload]) --> B{Auth?}
+        B -- No --> C[Login/Reg]
+        B -- Yes --> D[Click Tracking]
+        C --> B
     end
-    
-    Sync --> |Angle Deltas| LLM[Gemma-4: Generative Technical Report]
-    LLM --> |Personalized Tips| UI[Interactive Diagnostic Widget]
-    
-    UI --> |User Feedback| Save[Archive Result to Profile]
-    Save --> History[View Improvement Trends]
+
+    %% Stage 2: Vision Core
+    subgraph ST2 ["Stage 2: Vision & AI Core"]
+        direction LR
+        E[SAM2 Tracking] --> F[Player Isolation]
+        F --> G[Pose Extraction]
+    end
+
+    %% Stage 3: Synchronization
+    subgraph ST3 ["Stage 3: Synchronization"]
+        direction LR
+        H[Shot Detection] --> I[Segmented DTW]
+        I --> J[Accuracy Scoring]
+    end
+
+    %% Stage 4: Feedback
+    subgraph ST4 ["Stage 4: Feedback & UI"]
+        direction TB
+        K[LLM Report] --> L[Interactive HUD]
+        L --> M[(History DB)]
+    end
+
+    %% Connections
+    D --> ST2
+    ST2 --> ST3
+    ST3 --> ST4
+
+    %% Styling
+    style ST1 fill:rgba(0,255,136,0.05),stroke:#00ff88,stroke-width:2px
+    style ST2 fill:rgba(0,229,255,0.05),stroke:#00e5ff,stroke-width:2px
+    style ST3 fill:rgba(255,0,255,0.05),stroke:#ff00ff,stroke-width:2px
+    style ST4 fill:rgba(255,255,255,0.05),stroke:#ffffff,stroke-width:2px
 ```
 
 ### 🏛️ Technical Architecture
+The architecture follows a modular, decoupled design with a Node.js gateway and a specialized Python AI engine.
+
 ```mermaid
 graph TB
-    subgraph "Client Interface (The Cyber-Command)"
-        UI["Landing Dashboard (Vanilla JS)"]
-        GR_UI["Gradio Analysis Center"]
+    subgraph "Frontend Layer (UI/UX)"
+        A[HTML5/JS Dashboard]
+        B[Gradio Diagnostic HUD]
     end
 
-    subgraph "Orchestration & Data Layer"
-        Srv["Express.js Server"]
-        Auth["Auth & Session Manager"]
-        Postgres[(PostgreSQL - Neon Cloud)]
+    subgraph "Service Layer (Node.js)"
+        C[Express.js Gateway]
+        D[Auth & History API]
     end
 
-    subgraph "AI Engine (The Diagnostic Core)"
-        subgraph "Vision Engines"
-            SAM["SAM2 Tracking"]
-            POSE["MediaPipe Extractor"]
-            SHOT["R3D-18 Classifier"]
-        end
-        subgraph "Reasoning Engines"
-            SYNC["Segmented DTW Sync"]
-            GEN["Gemma-4 LLM Engine"]
-        end
+    subgraph "Analysis Engine (Python)"
+        E[AthletiQ Pipeline Controller]
+        F[Video processing Engine]
+        G[Analysis & Scoring Logic]
     end
 
-    UI <--> Srv
-    Srv <--> Postgres
-    Srv --> |Analysis Trigger| SAM
-    
-    SAM --> POSE
-    POSE --> SHOT
-    SHOT --> SYNC
-    SYNC --> GEN
-    
-    GEN --> GR_UI
-    Srv <--> GR_UI
+    subgraph "AI & Machine Learning Layer"
+        H[SAM2 - Tracking]
+        I[MediaPipe - Pose]
+        J[Custom CNN - Shot Classifier]
+        K[Ollama - LLM Feedback]
+    end
+
+    subgraph "Data Persistence"
+        L[(PostgreSQL - User Data)]
+        M[Local Storage - Video/JSON]
+    end
+
+    A <--> C
+    C <--> E
+    E --> F
+    E --> G
+    F <--> H
+    G <--> I
+    G <--> J
+    G <--> K
+    C <--> L
+    E <--> M
+    B <--> E
 ```
+
+### 🧬 Core Class Structure
+The system is built around a centralized model manager and a high-level pipeline orchestrator.
+
+```mermaid
+classDiagram
+    class ModelManager {
+        +predictor: SAM2Predictor
+        +extractor: PoseExtractor
+        +sync_engine: SyncEngine
+        +shot_classifier: ShotClassifier
+        -_load_models()
+    }
+
+    class AthletiQPipeline {
+        +mm: ModelManager
+        +process(video_path, click_coords)
+        +auto_detect_shot(video_path)
+    }
+
+    class PoseExtractor {
+        +options: PoseLandmarkerOptions
+        +extract_from_video(video_path)
+        +calculate_angle(a, b, c)
+        -_interpolate_gaps(frames)
+    }
+
+    AthletiQPipeline *-- ModelManager
+    ModelManager o-- PoseExtractor
+```
+
+> [!NOTE]
+> For a more detailed breakdown of the internal algorithms and segmented DTW logic, refer to the [Full System Analysis](docs/system_analysis.md) and the [Detailed Class Diagram](docs/class_diagram.md).
 
 ---
 
