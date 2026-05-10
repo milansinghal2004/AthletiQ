@@ -187,7 +187,7 @@ def run_sync_logic(practice_data, shot_type, practice_video, extractor, sync_eng
     )
     
     # Wrap feedback in a styled HUD container for a premium look
-    html_report = llm_report_text.replace('\n', '<br>')
+    html_report = llm_report_text
     styled_feedback = f"""
 <div style="font-family:'Rajdhani', sans-serif; background:rgba(0, 255, 136, 0.02); border-left:4px solid #00ff88; padding:20px; border-radius:0 12px 12px 0; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">
     <h3 style="margin-top:0; color:#00ff88; text-transform:uppercase; letter-spacing:2px; font-size:14px; font-weight:700;">Biomechanical Analysis Report</h3>

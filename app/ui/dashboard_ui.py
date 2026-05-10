@@ -14,7 +14,10 @@ def create_ui_layout():
             
             with gr.Column(scale=1):
                 gr.HTML("<div style='margin-bottom:10px;'><span style='color:#00ff88; font-weight:800; font-family:\"Rajdhani\", sans-serif; letter-spacing:2px; text-transform:uppercase; font-size:16px;'>📊 Technical Analysis HUD</span></div>")
-                out_score = gr.HTML("<div style='color:#484f58; font-style:italic;'>Analysis pending...</div>")
+                out_score = gr.Markdown(
+                value="*Analysis pending...*",
+                label="Biomechanical Analysis Report"
+            )
                 out_interactive = gr.HTML(label="Interactive Pose Analysis", sanitize_html=False)
                 with gr.Row():
                     out_isolated = gr.Video(label="Isolated Player (Cutout)")
