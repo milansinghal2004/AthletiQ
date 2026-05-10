@@ -168,7 +168,49 @@ graph TD
 
 ---
 
-## 4. Specialized Logic: Segmented DTW
+## 4. Use Case Diagram
+The following diagram illustrates the primary interactions between the user, the platform, and the external AI/Data services.
+
+```mermaid
+graph TD
+    User([User / Coach])
+    
+    subgraph AthletiQ ["AthletiQ System Boundary"]
+        UC1(Upload & Normalize Video)
+        UC2(Interactive Player Segmentation)
+        UC3(Auto-Shot Classification)
+        UC4(Segmented DTW Sync)
+        UC5(Biomechanical HUD Interaction)
+        UC6(Generative AI Feedback)
+        UC7(Performance History Tracking)
+    end
+    
+    AI_Engines[[AI Engines: SAM2/MediaPipe/Ollama]]
+    Postgres[(PostgreSQL Database)]
+    
+    User --- UC1
+    User --- UC2
+    User --- UC5
+    User --- UC7
+    
+    UC2 --- AI_Engines
+    UC3 --- AI_Engines
+    UC4 --- AI_Engines
+    UC6 --- AI_Engines
+    
+    UC1 --- Postgres
+    UC7 --- Postgres
+
+    %% Styling
+    style User fill:#003322,stroke:#00ff88,stroke-width:2px
+    style AI_Engines fill:#002233,stroke:#00e5ff,stroke-width:2px
+    style Postgres fill:#330033,stroke:#ff00ff,stroke-width:2px
+    style AthletiQ fill:none,stroke:#ffffff,stroke-dasharray: 5 5
+```
+
+---
+
+## 5. Specialized Logic: Segmented DTW
 The core differentiator of AthletiQ is the **Segmented DTW** which ensures critical frames (like the strike) are perfectly aligned despite temporal variations in user tempo.
 
 ```mermaid
